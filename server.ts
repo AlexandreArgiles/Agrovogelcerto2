@@ -7,7 +7,8 @@ import fs from 'fs';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
+  const isProduction = process.env.NODE_ENV === 'production' || path.basename(process.argv[1] || '') === 'server.cjs';
 
   // Ensure uploads directory exists
   const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -28,7 +29,7 @@ async function startServer() {
   app.use('/api', routes);
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== 'production') {
+  if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
