@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Trash2, UserPlus, Shield, User as UserIcon, X } from 'lucide-react';
+import { Trash2, UserPlus, Shield, User as UserIcon, X, Mail } from 'lucide-react';
 
 export const UserList = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '', username: '', role: 'user' });
+  const [formData, setFormData] = useState({ name: '', email: '', role: 'user' });
 
   useEffect(() => { fetchUsers(); }, []);
   const fetchUsers = async () => { const res = await axios.get('/api/users'); setUsers(res.data); };
@@ -15,10 +15,10 @@ export const UserList = () => {
     try {
       await axios.post('/api/users', formData);
       setIsModalOpen(false);
-      setFormData({ name: '', username: '', role: 'user' });
+      setFormData({ name: '', email: '', role: 'user' });
       fetchUsers();
-      alert('Usuário criado! Senha padrão: 123456');
-    } catch (error) { alert('Erro ao criar usuário.'); }
+      alert('Usuario criado! Senha padrao: 123456');
+    } catch (error) { alert('Erro ao criar usuario.'); }
   };
 
   return (
@@ -42,14 +42,17 @@ export const UserList = () => {
               </div>
               <div>
                 <h3 className="font-bold text-gray-800">{u.name}</h3>
-                <p className="text-sm text-gray-500">@{u.username}</p>
+                <p className="text-sm text-gray-500 flex items-center gap-1">
+                  <Mail size={14} />
+                  <span>{u.email}</span>
+                </p>
               </div>
             </div>
             <div className="flex justify-between items-center border-t pt-4">
               <span className={`text-xs font-bold ${u.force_password_change ? 'text-orange-500' : 'text-green-500'}`}>
                 {u.force_password_change ? 'Senha Pendente' : 'Senha Ativa'}
               </span>
-              <button onClick={async () => { if(confirm('Remover acesso deste usuário?')) { await axios.delete(`/api/users/${u.id}`); fetchUsers(); } }} className="text-gray-400 hover:text-red-500 transition-colors">
+              <button onClick={async () => { if(confirm('Remover acesso deste usuario?')) { await axios.delete(`/api/users/${u.id}`); fetchUsers(); } }} className="text-gray-400 hover:text-red-500 transition-colors">
                 <Trash2 size={18}/>
               </button>
             </div>
@@ -61,7 +64,7 @@ export const UserList = () => {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="bg-[#0a5c36] p-5 text-white flex justify-between items-center">
-              <h2 className="font-bold text-lg">Cadastrar Novo Usuário</h2>
+              <h2 className="font-bold text-lg">Cadastrar Novo Usuario</h2>
               <button type="button" onClick={() => setIsModalOpen(false)}><X size={24}/></button>
             </div>
             <div className="p-6 space-y-4">
@@ -70,18 +73,18 @@ export const UserList = () => {
                 <input required className="w-full border p-2.5 rounded-lg bg-gray-50" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Ex: Alexandre Argiles" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Login (Username)</label>
-                <input required className="w-full border p-2.5 rounded-lg bg-gray-50" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} placeholder="Ex: alexandre.tech" />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">E-mail de Login</label>
+                <input required type="email" className="w-full border p-2.5 rounded-lg bg-gray-50" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="Ex: alexandre@agrovogel.com" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Nível de Acesso</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Nivel de Acesso</label>
                 <select className="w-full border p-2.5 rounded-lg bg-gray-50" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-                  <option value="user">Usuário Comum</option>
+                  <option value="user">Usuario Comum</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>
               <p className="text-xs text-blue-600 bg-blue-50 p-3 rounded">
-                * A senha inicial para todos os novos usuários será <strong>123456</strong>. Eles serão obrigados a trocá-la no primeiro acesso.
+                * A senha inicial para todos os novos usuarios sera <strong>123456</strong>. Eles serao obrigados a troca-la no primeiro acesso.
               </p>
               <button className="w-full bg-[#0a5c36] text-white font-bold py-3 rounded-lg hover:bg-[#0d7a48] transition-colors">Criar Acesso</button>
             </div>

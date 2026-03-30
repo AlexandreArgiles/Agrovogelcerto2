@@ -19,6 +19,8 @@ export const clientSchema = z.object({
     name: z.string().min(3, 'Name is required'),
     email: z.string().email('Invalid email').optional().or(z.literal('')),
     phone: z.string().min(10, 'Phone must be at least 10 digits').optional().or(z.literal('')),
+    cpf: z.string().min(11, 'CPF must be at least 11 digits').optional().or(z.literal('')),
+    birth_date: z.string().optional().or(z.literal('')),
     latitude: z.preprocess((val) => (val ? Number(val) : undefined), z.number().optional()),
     longitude: z.preprocess((val) => (val ? Number(val) : undefined), z.number().optional()),
   }),

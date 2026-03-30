@@ -7,5 +7,5 @@ esbuild.build({
   target: 'node20',
   outfile: 'dist/server.cjs',
   format: 'cjs',
-  external: ['sqlite3', 'bcryptjs', 'express', 'cors', 'jsonwebtoken'],
+  external: ['sqlite3', 'bcryptjs', 'express', 'cors', 'jsonwebtoken', 'vite'],
 }).catch(() => process.exit(1));

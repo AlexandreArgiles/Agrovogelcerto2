@@ -5,6 +5,8 @@ export class OSService {
     return db.prepare(`
       SELECT so.*, 
              c.name as client_name, 
+             c.latitude as client_latitude,
+             c.longitude as client_longitude,
              s.name as service_name, 
              es.name as extra_service_name,
              v.name as vehicle_name,
@@ -22,6 +24,8 @@ export class OSService {
     return db.prepare(`
       SELECT so.*, 
              c.name as client_name, 
+             c.latitude as client_latitude,
+             c.longitude as client_longitude,
              s.name as service_name, 
              es.name as extra_service_name,
              v.name as vehicle_name,

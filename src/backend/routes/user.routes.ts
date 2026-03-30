@@ -16,7 +16,7 @@ router.post('/', async (req, res) => {
     const user = await userService.create(req.body);
     res.status(201).json(user);
   } catch (error: any) {
-    res.status(400).json({ message: "Usuário ou Login já existe" });
+    res.status(400).json({ message: 'Usuario ou e-mail ja existe' });
   }
 });
 

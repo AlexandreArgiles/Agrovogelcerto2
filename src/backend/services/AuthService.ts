@@ -6,7 +6,7 @@ const SECRET_KEY = process.env.JWT_SECRET || 'supersecretkey123';
 
 export class AuthService {
   async login(email: string, password: string) {
-    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
+    const stmt = db.prepare('SELECT * FROM users WHERE LOWER(COALESCE(email, username)) = LOWER(?)');
     const user = stmt.get(email) as any;
 
     if (!user) {
@@ -59,17 +59,24 @@ export class AuthService {
   }
 
   async register(name: string, email: string, password: string) {
-    const stmtCheck = db.prepare('SELECT * FROM users WHERE email = ?');
-    const existing = stmtCheck.get(email);
+    const normalizedEmail = email.trim().toLowerCase();
+    const stmtCheck = db.prepare('SELECT * FROM users WHERE LOWER(COALESCE(email, username)) = LOWER(?)');
+    const existing = stmtCheck.get(normalizedEmail);
 
     if (existing) {
       throw new Error('Email already in use');
     }
 
     const hash = await bcrypt.hash(password, 10);
-    const stmtInsert = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
-    const info = stmtInsert.run(name, email, hash);
+    const hasUsernameColumn = (db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>)
+      .some((column) => column.name === 'username');
+    const stmtInsert = hasUsernameColumn
+      ? db.prepare('INSERT INTO users (name, email, username, password) VALUES (?, ?, ?, ?)')
+      : db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
+    const info = hasUsernameColumn
+      ? stmtInsert.run(name, normalizedEmail, normalizedEmail, hash)
+      : stmtInsert.run(name, normalizedEmail, hash);
 
-    return { id: info.lastInsertRowid, name, email };
+    return { id: info.lastInsertRowid, name, email: normalizedEmail };
   }
 }

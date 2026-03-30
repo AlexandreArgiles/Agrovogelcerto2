@@ -14,10 +14,8 @@ export const OSDetails = () => {
   const [osTechnicians, setOsTechnicians] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [mileage, setMileage] = useState('');
-  
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
-  
   const [isSaving, setIsSaving] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -46,17 +44,17 @@ export const OSDetails = () => {
       const res = await axios.get(`/api/os/${id}`);
       setOs(res.data);
       setMileage(res.data.mileage?.toString() || '0');
-      setManualLat(res.data.latitude?.toString() || '');
-      setManualLng(res.data.longitude?.toString() || '');
+      setManualLat((res.data.latitude ?? res.data.client_latitude)?.toString() || '');
+      setManualLng((res.data.longitude ?? res.data.client_longitude)?.toString() || '');
 
       try {
         const techRes = await axios.get(`/api/os/${id}/technicians`);
         setOsTechnicians(Array.isArray(techRes.data) ? techRes.data : []);
-      } catch (err) {
+      } catch {
         setOsTechnicians([]);
       }
-    } catch (error) {
-      alert('Ordem de serviço não encontrada');
+    } catch {
+      alert('Ordem de servico nao encontrada');
       navigate('/os');
     }
   };
@@ -65,70 +63,97 @@ export const OSDetails = () => {
   const fetchAllTechnicians = async () => { try { const res = await axios.get('/api/technicians'); setAllTechnicians(res.data); } catch (error) { console.error(error); } };
   const fetchVehicles = async () => { try { const res = await axios.get('/api/vehicles'); setVehicles(res.data); } catch (error) { console.error(error); } };
 
-const handleSaveMileage = async () => {
+  const buildOsUpdateFormData = (overrides: Record<string, string> = {}) => {
+    const data = new FormData();
+    data.append('client_id', os.client_id.toString());
+    data.append('service_id', os.service_id?.toString() || '');
+    data.append('extra_service_id', os.extra_service_id?.toString() || '');
+    data.append('vehicle_id', os.vehicle_id?.toString() || '');
+    data.append('technician_ids', JSON.stringify(osTechnicians.map((technician) => technician.id)));
+    data.append('description', os.description || '');
+    data.append('status', os.status || 'pending');
+    data.append('latitude', os.latitude?.toString() || '');
+    data.append('longitude', os.longitude?.toString() || '');
+    data.append('mileage', os.mileage?.toString() || '0');
+    data.append('hours_worked', os.hours_worked?.toString() || '0');
+    data.append('travel_cost', os.travel_cost?.toString() || '0');
+    data.append('final_price', os.final_price?.toString() || '0');
+    data.append('final_technician_pay', os.final_technician_pay?.toString() || '0');
+
+    Object.entries(overrides).forEach(([key, value]) => {
+      data.set(key, value);
+    });
+
+    return data;
+  };
+
+  const handleSaveMileage = async () => {
     setIsSaving(true);
     try {
       let newTravelCost = 0;
       if (os.vehicle_id) {
-        const vehicle = vehicles.find(v => v.id === os.vehicle_id);
+        const vehicle = vehicles.find((v) => v.id === os.vehicle_id);
         if (vehicle && Number(mileage) > 0) {
-          // Mantendo a consistência: KM * 2 para ida e volta
           newTravelCost = ((Number(mileage) * 2) / vehicle.consumption) * vehicle.fuel_price;
         }
       }
 
-      const data = new FormData();
-      data.append('client_id', os.client_id.toString());
-      data.append('description', os.description);
-      data.append('status', os.status);
-      data.append('mileage', mileage);
-      data.append('travel_cost', newTravelCost.toString());
-      
+      const data = buildOsUpdateFormData({
+        mileage,
+        travel_cost: newTravelCost.toString()
+      });
+
       await axios.put(`/api/os/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
-      alert('Quilometragem e custo de deslocação (Ida/Volta) atualizados!');
+      alert('Quilometragem e custo de deslocamento atualizados!');
       fetchOSDetails();
-    } catch (error) { alert('Erro ao atualizar quilometragem'); } finally { setIsSaving(false); }
+    } catch {
+      alert('Erro ao atualizar quilometragem');
+    } finally {
+      setIsSaving(false);
+    }
   };
+
   const handleSaveManualLocation = async () => {
     setIsSaving(true);
     try {
-      const data = new FormData();
-      data.append('client_id', os.client_id.toString());
-      data.append('description', os.description);
-      data.append('status', os.status);
-      data.append('latitude', manualLat);
-      data.append('longitude', manualLng);
-      data.append('mileage', os.mileage?.toString() || '0');
-      data.append('travel_cost', os.travel_cost?.toString() || '0');
-      
+      const data = buildOsUpdateFormData({
+        latitude: manualLat,
+        longitude: manualLng
+      });
+
       await axios.put(`/api/os/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
-      alert('Localização manual salva com sucesso!');
+      alert('Localizacao manual salva com sucesso!');
       fetchOSDetails();
-    } catch (error: any) { alert('Erro ao salvar a localização manualmente.'); } finally { setIsSaving(false); }
+    } catch {
+      alert('Erro ao salvar a localizacao manualmente.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleUpdateLocationDirectly = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            const data = new FormData();
-            data.append('client_id', os.client_id.toString());
-            data.append('description', os.description);
-            data.append('status', os.status);
-            data.append('latitude', position.coords.latitude.toString());
-            data.append('longitude', position.coords.longitude.toString());
-            data.append('mileage', os.mileage?.toString() || '0');
-            data.append('travel_cost', os.travel_cost?.toString() || '0');
+    if (!navigator.geolocation) {
+      alert('Geolocalizacao nao e suportada por este navegador.');
+      return;
+    }
 
-            await axios.put(`/api/os/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
-            alert('Localização GPS atualizada com sucesso!');
-            fetchOSDetails();
-          } catch (error: any) { alert('Erro ao salvar a nova localização.'); }
-        },
-        (error) => { alert('Erro ao obter localização: ' + error.message); }
-      );
-    } else { alert('Geolocalização não é suportada por este navegador.'); }
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const data = buildOsUpdateFormData({
+            latitude: position.coords.latitude.toString(),
+            longitude: position.coords.longitude.toString()
+          });
+
+          await axios.put(`/api/os/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
+          alert('Localizacao GPS atualizada com sucesso!');
+          fetchOSDetails();
+        } catch {
+          alert('Erro ao salvar a nova localizacao.');
+        }
+      },
+      (error) => { alert('Erro ao obter localizacao: ' + error.message); }
+    );
   };
 
   const initEditForm = (targetStatus: string) => {
@@ -136,7 +161,7 @@ const handleSaveMileage = async () => {
       service_id: os.service_id?.toString() || '',
       extra_service_id: os.extra_service_id?.toString() || '',
       vehicle_id: os.vehicle_id?.toString() || '',
-      technician_ids: osTechnicians.map(t => t.id),
+      technician_ids: osTechnicians.map((t) => t.id),
       hours_worked: os.hours_worked?.toString() || '',
       description: os.description || '',
       latitude: os.latitude?.toString() || '',
@@ -148,15 +173,21 @@ const handleSaveMileage = async () => {
   };
 
   const handleDeleteOS = async () => {
-    if (window.confirm('Tem certeza absoluta que deseja excluir esta Ordem de Serviço? Todo o histórico dela será apagado.')) {
-      try { await axios.delete(`/api/os/${id}`); alert('OS excluída com sucesso.'); navigate('/os'); } catch (error: any) { alert(error.response?.data?.message || 'Erro ao excluir a OS.'); }
+    if (window.confirm('Tem certeza absoluta que deseja excluir esta Ordem de Servico? Todo o historico dela sera apagado.')) {
+      try {
+        await axios.delete(`/api/os/${id}`);
+        alert('OS excluida com sucesso.');
+        navigate('/os');
+      } catch (error: any) {
+        alert(error.response?.data?.message || 'Erro ao excluir a OS.');
+      }
     }
   };
 
-const calculateTotals = () => {
-    const baseService = services.find(s => s.id === Number(editFormData.service_id));
-    const extraService = services.find(s => s.id === Number(editFormData.extra_service_id));
-    const vehicle = vehicles.find(v => v.id === Number(editFormData.vehicle_id));
+  const calculateTotals = () => {
+    const baseService = services.find((s) => s.id === Number(editFormData.service_id));
+    const extraService = services.find((s) => s.id === Number(editFormData.extra_service_id));
+    const vehicle = vehicles.find((v) => v.id === Number(editFormData.vehicle_id));
     const hours = Number(editFormData.hours_worked) || 0;
 
     let calcPrice = 0;
@@ -171,10 +202,7 @@ const calculateTotals = () => {
       calcPrice += extraService.price_type === 'hourly' ? extraService.price * hours : extraService.price;
       calcTech += extraService.price_type === 'hourly' ? extraService.technician_pay * hours : extraService.technician_pay;
     }
-
-    // CÁLCULO ATUALIZADO: (KM * 2) / Consumo * Preço do Litro
     if (vehicle && Number(mileage) > 0) {
-      // Multiplicamos por 2 para considerar IDA e VOLTA automaticamente
       calcTravelCost = ((Number(mileage) * 2) / vehicle.consumption) * vehicle.fuel_price;
     }
 
@@ -185,7 +213,7 @@ const calculateTotals = () => {
     e.preventDefault();
     const totals = calculateTotals();
     const data = new FormData();
-    
+
     data.append('client_id', os.client_id.toString());
     data.append('service_id', editFormData.service_id || '');
     data.append('extra_service_id', editFormData.extra_service_id || '');
@@ -195,7 +223,7 @@ const calculateTotals = () => {
     data.append('status', editFormData.status);
     data.append('latitude', editFormData.latitude);
     data.append('longitude', editFormData.longitude);
-    data.append('mileage', mileage); 
+    data.append('mileage', mileage);
     data.append('hours_worked', editFormData.hours_worked || '0');
     data.append('travel_cost', totals.travelCost.toString());
     data.append('final_price', totals.price.toString());
@@ -207,16 +235,27 @@ const calculateTotals = () => {
       setIsEditModalOpen(false);
       fetchOSDetails();
       alert('OS atualizada com sucesso!');
-    } catch (error: any) { alert(error.response?.data?.message || 'Erro ao atualizar a Ordem de Serviço.'); }
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erro ao atualizar a Ordem de Servico.');
+    }
   };
 
   if (!os) return <div className="p-8 text-center text-gray-500">Carregando detalhes...</div>;
 
-  const mapLink = `http://googleusercontent.com/maps.google.com/maps?q=${os.latitude},${os.longitude}`;
+  const latitude = os.latitude ?? os.client_latitude;
+  const longitude = os.longitude ?? os.client_longitude;
+  const hasCoordinates = latitude !== null && latitude !== undefined && longitude !== null && longitude !== undefined;
+  const mapLink = hasCoordinates ? `https://www.google.com/maps?q=${latitude},${longitude}` : '';
   const totals = calculateTotals();
 
   const translateStatus = (status: string) => {
-    switch (status) { case 'pending': return 'Pendente'; case 'approved': return 'Aprovada'; case 'completed': return 'Concluída'; case 'refused': return 'Recusada'; default: return status; }
+    switch (status) {
+      case 'pending': return 'Pendente';
+      case 'approved': return 'Aprovada';
+      case 'completed': return 'Concluida';
+      case 'refused': return 'Recusada';
+      default: return status;
+    }
   };
 
   return (
@@ -228,15 +267,15 @@ const calculateTotals = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="bg-[#0a5c36] p-4 sm:p-6 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold">Ordem de Serviço #{os.id}</h1>
-            <p className="text-green-100 mt-1 opacity-90 text-sm">{format(new Date(os.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}</p>
+            <h1 className="text-xl sm:text-2xl font-bold">Ordem de Servico #{os.id}</h1>
+            <p className="text-green-100 mt-1 opacity-90 text-sm">{format(new Date(os.created_at), "dd 'de' MMMM 'de' yyyy 'as' HH:mm", { locale: ptBR })}</p>
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-2">
             <span className={`px-4 py-1.5 rounded-full font-bold uppercase text-xs sm:text-sm tracking-wide shadow-sm ${os.status === 'completed' ? 'bg-blue-600 text-white' : os.status === 'refused' ? 'bg-red-100 text-red-800' : 'bg-white text-[#0a5c36]'}`}>
               {translateStatus(os.status)}
             </span>
-            
+
             {os.status !== 'completed' && (
               <button onClick={() => initEditForm('completed')} className="bg-white text-[#0a5c36] hover:bg-green-50 font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-all shadow-sm flex items-center text-sm active:scale-95">
                 <CheckCircle size={16} className="mr-1.5" /> Concluir OS
@@ -246,7 +285,7 @@ const calculateTotals = () => {
             <button onClick={() => initEditForm(os.status || 'pending')} className="bg-[#8cc63f] hover:bg-[#7ab036] text-[#0a5c36] p-2 sm:p-2.5 rounded-full transition-all shadow-sm active:scale-95" title="Editar OS">
               <Edit size={18} strokeWidth={2.5} />
             </button>
-            
+
             <button onClick={handleDeleteOS} className="bg-red-500 hover:bg-red-600 text-white p-2 sm:p-2.5 rounded-full transition-all shadow-sm active:scale-95" title="Excluir OS">
               <Trash2 size={18} strokeWidth={2.5} />
             </button>
@@ -262,26 +301,26 @@ const calculateTotals = () => {
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <h3 className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center"><Users size={16} className="mr-2"/> Técnicos</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center"><Users size={16} className="mr-2"/> Tecnicos</h3>
                 <div className="flex flex-wrap gap-2">
-                  {osTechnicians.length > 0 ? osTechnicians.map(t => (
+                  {osTechnicians.length > 0 ? osTechnicians.map((t) => (
                     <span key={t.id} className="bg-green-100 text-[#0a5c36] px-3 py-1 rounded-full text-xs font-bold border border-green-200 shadow-sm">{t.name}</span>
                   )) : <p className="text-gray-400 text-sm italic">Nenhum</p>}
                 </div>
               </div>
               <div>
-                <h3 className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center"><Car size={16} className="mr-2"/> Veículo da Frota</h3>
-                <p className="font-semibold text-gray-800 text-sm sm:text-base">{os.vehicle_name || <span className="text-gray-400 italic font-normal">Não vinculado</span>}</p>
+                <h3 className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center"><Car size={16} className="mr-2"/> Veiculo da Frota</h3>
+                <p className="font-semibold text-gray-800 text-sm sm:text-base">{os.vehicle_name || <span className="text-gray-400 italic font-normal">Nao vinculado</span>}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-100">
-                <h3 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center"><Wrench size={14} className="mr-1.5"/> Serviço Base</h3>
-                <p className="font-semibold text-gray-800 text-sm sm:text-base">{os.service_name || 'Não vinculado'}</p>
+                <h3 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center"><Wrench size={14} className="mr-1.5"/> Servico Base</h3>
+                <p className="font-semibold text-gray-800 text-sm sm:text-base">{os.service_name || 'Nao vinculado'}</p>
               </div>
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-100">
-                <h3 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center"><Plus size={14} className="mr-1.5"/> Serviço Extra</h3>
+                <h3 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center"><Plus size={14} className="mr-1.5"/> Servico Extra</h3>
                 <p className="font-semibold text-gray-800 text-sm sm:text-base">{os.extra_service_name || 'Nenhum'}</p>
               </div>
             </div>
@@ -300,27 +339,27 @@ const calculateTotals = () => {
                   <p className="text-base font-bold text-green-900">R$ {(os.final_price || 0).toFixed(2)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-blue-600 font-bold uppercase">Técnicos</p>
+                  <p className="text-[10px] sm:text-xs text-blue-600 font-bold uppercase">Tecnicos</p>
                   <p className="text-base font-bold text-blue-700">R$ {(os.final_technician_pay || 0).toFixed(2)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-red-600 font-bold uppercase">Combustível</p>
+                  <p className="text-[10px] sm:text-xs text-red-600 font-bold uppercase">Combustivel</p>
                   <p className="text-base font-bold text-red-600">R$ {(os.travel_cost || 0).toFixed(2)}</p>
                 </div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Descrição do Problema / Serviço</h3>
+              <h3 className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Descricao do Problema / Servico</h3>
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-100 text-gray-700 min-h-[80px] text-sm whitespace-pre-wrap">
                 {os.description}
               </div>
             </div>
-            
+
             {os.image_url && (
               <div>
-                 <h3 className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center"><ImageIcon size={16} className="mr-2"/> Anexo</h3>
-                 <a href={os.image_url} target="_blank" rel="noopener noreferrer"><img src={os.image_url} alt="Anexo OS" className="max-w-full sm:max-w-[200px] rounded-lg shadow-sm border hover:opacity-90 transition-opacity" /></a>
+                <h3 className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center"><ImageIcon size={16} className="mr-2"/> Anexo</h3>
+                <a href={os.image_url} target="_blank" rel="noopener noreferrer"><img src={os.image_url} alt="Anexo OS" className="max-w-full sm:max-w-[200px] rounded-lg shadow-sm border hover:opacity-90 transition-opacity" /></a>
               </div>
             )}
           </div>
@@ -328,7 +367,7 @@ const calculateTotals = () => {
           <div className="space-y-6">
             <div className="bg-blue-50 p-4 sm:p-5 rounded-xl border border-blue-100">
               <h3 className="text-xs sm:text-sm font-bold text-blue-800 uppercase tracking-wider mb-3 flex items-center">
-                <MapPin size={16} className="mr-2"/> Localização
+                <MapPin size={16} className="mr-2"/> Localizacao
               </h3>
               <div className="flex flex-col space-y-4">
                 <div className="grid grid-cols-2 gap-3">
@@ -345,14 +384,14 @@ const calculateTotals = () => {
                   <Save size={16} className="mr-2" /> Salvar Coordenadas
                 </button>
                 <div className="relative flex items-center py-1">
-                    <div className="flex-grow border-t border-blue-200"></div>
-                    <span className="flex-shrink-0 mx-4 text-blue-400 text-[10px] font-bold uppercase">Ou Automático</span>
-                    <div className="flex-grow border-t border-blue-200"></div>
+                  <div className="flex-grow border-t border-blue-200"></div>
+                  <span className="flex-shrink-0 mx-4 text-blue-400 text-[10px] font-bold uppercase">Ou Automatico</span>
+                  <div className="flex-grow border-t border-blue-200"></div>
                 </div>
                 <button onClick={handleUpdateLocationDirectly} className="flex items-center justify-center w-full bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold py-2 rounded-lg shadow-sm text-sm">
                   <Navigation size={16} className="mr-2" /> Puxar pelo GPS Agora
                 </button>
-                {os.latitude && os.longitude && (
+                {hasCoordinates && (
                   <a href={mapLink} target="_blank" rel="noopener noreferrer" className="text-center w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg shadow-sm mt-2 flex justify-center items-center text-sm">
                     <MapPin size={16} className="mr-2"/> Abrir no Google Maps
                   </a>
@@ -365,10 +404,10 @@ const calculateTotals = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <input type="number" step="0.1" className="flex-1 rounded-lg border-gray-300 shadow-sm p-2.5 border text-sm" value={mileage} onChange={(e) => setMileage(e.target.value)} />
                 <button onClick={handleSaveMileage} disabled={isSaving} className="bg-[#0a5c36] text-white px-4 py-2.5 rounded-lg font-bold hover:bg-[#0d7a48] flex items-center justify-center text-sm">
-                  <Save size={16} className={isSaving ? "opacity-50" : "mr-2"} /> {isSaving ? 'Salvando...' : 'Salvar KMs'}
+                  <Save size={16} className={isSaving ? 'opacity-50' : 'mr-2'} /> {isSaving ? 'Salvando...' : 'Salvar KMs'}
                 </button>
               </div>
-              {os.vehicle_id && <p className="text-xs text-gray-500 mt-2 italic">* O custo do combustível será atualizado automaticamente ao salvar.</p>}
+              {os.vehicle_id && <p className="text-xs text-gray-500 mt-2 italic">* O custo do combustivel sera atualizado automaticamente ao salvar.</p>}
             </div>
           </div>
         </div>
@@ -381,52 +420,56 @@ const calculateTotals = () => {
               <h2 className="text-lg sm:text-xl font-bold text-white">Editar / Concluir OS</h2>
               <button onClick={() => setIsEditModalOpen(false)} className="text-green-100 hover:text-white p-1"><X size={24} /></button>
             </div>
-            
+
             <div className="p-4 sm:p-6 overflow-y-auto">
               <form onSubmit={handleEditSubmit} className="space-y-4">
-                
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div className="col-span-1">
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
-                    <select className={`block w-full rounded-lg shadow-sm p-2.5 border transition-colors ${editFormData.status === 'completed' ? 'bg-blue-50 border-blue-400 text-blue-900 font-bold' : 'bg-gray-50 border-gray-300'}`} value={editFormData.status} onChange={e => setEditFormData({...editFormData, status: e.target.value})}>
+                    <select className={`block w-full rounded-lg shadow-sm p-2.5 border transition-colors ${editFormData.status === 'completed' ? 'bg-blue-50 border-blue-400 text-blue-900 font-bold' : 'bg-gray-50 border-gray-300'}`} value={editFormData.status} onChange={e => setEditFormData({ ...editFormData, status: e.target.value })}>
                       <option value="pending">Pendente</option>
                       <option value="approved">Aprovada</option>
-                      <option value="completed">Concluída</option>
+                      <option value="completed">Concluida</option>
                       <option value="refused">Recusada</option>
                     </select>
                   </div>
                   <div className="col-span-1">
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Serviço Base</label>
-                    <select className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border" value={editFormData.service_id} onChange={e => setEditFormData({...editFormData, service_id: e.target.value})}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Servico Base</label>
+                    <select className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border" value={editFormData.service_id} onChange={e => setEditFormData({ ...editFormData, service_id: e.target.value })}>
                       <option value="">Nenhum</option>
-                      {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
                   <div className="col-span-1">
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Serviço Extra</label>
-                    <select className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border" value={editFormData.extra_service_id} onChange={e => setEditFormData({...editFormData, extra_service_id: e.target.value})}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Servico Extra</label>
+                    <select className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border" value={editFormData.extra_service_id} onChange={e => setEditFormData({ ...editFormData, extra_service_id: e.target.value })}>
                       <option value="">Nenhum</option>
-                      {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
                   <div className="col-span-1">
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Veículo Utilizado</label>
-                    <select className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border" value={editFormData.vehicle_id} onChange={e => setEditFormData({...editFormData, vehicle_id: e.target.value})}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Veiculo Utilizado</label>
+                    <select className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border" value={editFormData.vehicle_id} onChange={e => setEditFormData({ ...editFormData, vehicle_id: e.target.value })}>
                       <option value="">Nenhum</option>
-                      {vehicles.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                      {vehicles.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Técnicos (Opcional)</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Tecnicos (Opcional)</label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-300 max-h-32 overflow-y-auto">
-                    {allTechnicians.map(t => (
+                    {allTechnicians.map((t) => (
                       <label key={t.id} className="flex items-center space-x-2 text-sm cursor-pointer hover:text-[#0a5c36]">
-                        <input type="checkbox" className="rounded text-[#0a5c36] focus:ring-[#0a5c36]" checked={editFormData.technician_ids.includes(t.id)} onChange={(e) => {
-                            const ids = e.target.checked ? [...editFormData.technician_ids, t.id] : editFormData.technician_ids.filter(id => id !== t.id);
-                            setEditFormData({...editFormData, technician_ids: ids});
-                        }} />
+                        <input
+                          type="checkbox"
+                          className="rounded text-[#0a5c36] focus:ring-[#0a5c36]"
+                          checked={editFormData.technician_ids.includes(t.id)}
+                          onChange={(e) => {
+                            const ids = e.target.checked ? [...editFormData.technician_ids, t.id] : editFormData.technician_ids.filter((techId) => techId !== t.id);
+                            setEditFormData({ ...editFormData, technician_ids: ids });
+                          }}
+                        />
                         <span className="truncate">{t.name}</span>
                       </label>
                     ))}
@@ -435,25 +478,25 @@ const calculateTotals = () => {
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex-1 w-full sm:w-auto">
-                    <label className="block text-sm font-bold text-blue-900 mb-1">Horas Trabalhadas (Se aplicável)</label>
-                    <input type="number" step="0.5" min="0" className="block w-full rounded-lg border-blue-300 bg-white p-2.5 border" value={editFormData.hours_worked} onChange={e => setEditFormData({...editFormData, hours_worked: e.target.value})} placeholder="Ex: 2.5" />
+                    <label className="block text-sm font-bold text-blue-900 mb-1">Horas Trabalhadas (Se aplicavel)</label>
+                    <input type="number" step="0.5" min="0" className="block w-full rounded-lg border-blue-300 bg-white p-2.5 border" value={editFormData.hours_worked} onChange={e => setEditFormData({ ...editFormData, hours_worked: e.target.value })} placeholder="Ex: 2.5" />
                   </div>
                   <div className="text-left sm:text-right w-full sm:w-auto">
-                    <p className="text-[10px] sm:text-xs text-blue-600 font-bold uppercase mb-1">Cálculo Automático</p>
+                    <p className="text-[10px] sm:text-xs text-blue-600 font-bold uppercase mb-1">Calculo Automatico</p>
                     <p className="text-base sm:text-lg font-bold text-blue-900">Cliente: R$ {totals.price.toFixed(2)}</p>
-                    <p className="text-xs sm:text-sm font-bold text-green-700">Técnico(s): R$ {totals.techPay.toFixed(2)}</p>
-                    <p className="text-xs sm:text-sm font-bold text-red-600">Combustível: R$ {totals.travelCost.toFixed(2)}</p>
+                    <p className="text-xs sm:text-sm font-bold text-green-700">Tecnico(s): R$ {totals.techPay.toFixed(2)}</p>
+                    <p className="text-xs sm:text-sm font-bold text-red-600">Combustivel: R$ {totals.travelCost.toFixed(2)}</p>
                   </div>
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Descrição / Relatório <span className="text-red-500">*</span></label>
-                  <textarea required className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border resize-none" rows={3} value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Descricao / Relatorio <span className="text-red-500">*</span></label>
+                  <textarea required className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border resize-none" rows={3} value={editFormData.description} onChange={e => setEditFormData({ ...editFormData, description: e.target.value })} />
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row justify-end sm:space-x-3 mt-2 border-t border-gray-100 pt-4 gap-3 sm:gap-0">
                   <button type="button" onClick={() => setIsEditModalOpen(false)} className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-gray-600 font-medium hover:bg-gray-100 border sm:border-transparent border-gray-200">Cancelar</button>
-                  <button type="submit" className="w-full sm:w-auto px-5 py-2.5 bg-[#0a5c36] text-white font-bold rounded-lg hover:bg-[#0d7a48]">Salvar Alterações</button>
+                  <button type="submit" className="w-full sm:w-auto px-5 py-2.5 bg-[#0a5c36] text-white font-bold rounded-lg hover:bg-[#0d7a48]">Salvar Alteracoes</button>
                 </div>
               </form>
             </div>

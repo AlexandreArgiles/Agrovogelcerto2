@@ -16,16 +16,49 @@ export class ClientController {
 
   create = async (req: AuthRequest, res: Response) => {
     try {
-      const { name, email, phone, latitude, longitude } = req.body;
+      const { name, email, phone, cpf, birth_date, latitude, longitude } = req.body;
       const userId = req.user!.id;
       const newClient = await this.clientService.create({
         name,
         email,
         phone,
+        cpf,
+        birth_date,
         latitude: latitude ? parseFloat(latitude) : undefined,
         longitude: longitude ? parseFloat(longitude) : undefined
       }, userId);
       res.status(201).json(newClient);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  };
+
+  update = async (req: AuthRequest, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { name, email, phone, cpf, birth_date, latitude, longitude } = req.body;
+      const userId = req.user!.id;
+      const updatedClient = await this.clientService.update(id, {
+        name,
+        email,
+        phone,
+        cpf,
+        birth_date,
+        latitude: latitude ? parseFloat(latitude) : undefined,
+        longitude: longitude ? parseFloat(longitude) : undefined
+      }, userId);
+      res.json(updatedClient);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  };
+
+  delete = async (req: AuthRequest, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = req.user!.id;
+      await this.clientService.delete(id, userId);
+      res.status(204).send();
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
