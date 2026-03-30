@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import { VehicleController } from '../controllers/VehicleController';
+import { authMiddleware } from '../middlewares/auth';
+const router = Router();
+const c = new VehicleController();
+router.use(authMiddleware);
+router.get('/', c.getAll);
+router.get('/expenses', c.getExpenses);
+router.post('/', c.create);
+router.post('/expenses', c.createExpense);
+router.put('/:id', c.update);
+router.delete('/:id', c.delete);
+router.delete('/expenses/:id', c.deleteExpense);
+export default router;
