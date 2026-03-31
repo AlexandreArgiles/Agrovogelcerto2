@@ -14,6 +14,7 @@ import { VehicleList } from './pages/VehicleList'; // <-- Importação dos Técn
 import { MapView } from './pages/Map';
 import { ChangePassword } from './pages/ChangePassword';
 import { UserList } from './pages/UserList';
+import { Stock } from './pages/Stock';
 
 
 
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="/technicians" element={<TechnicianList />} /> {/* <-- Rota dos Técnicos */}
         <Route path="/vehicles" element={<VehicleList />} /> {/* <-- Rota dos Veículos */}
         <Route path="/map" element={<MapView />} />
+        <Route path="/stock" element={<Stock />} />
         <Route path="/users" element={<UserList />} />
       </Route>
     </Routes>

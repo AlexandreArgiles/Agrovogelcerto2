@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, MapPin, Save, User, Wrench, Image as ImageIcon, Edit, X, Navigation, DollarSign, Clock, Plus, CheckCircle, Trash2, Users, Car } from 'lucide-react';
+import { ArrowLeft, MapPin, Save, User, Wrench, Image as ImageIcon, Edit, X, Navigation, DollarSign, Clock, Plus, CheckCircle, Trash2, Users, Car, Package } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -13,11 +13,19 @@ export const OSDetails = () => {
   const [allTechnicians, setAllTechnicians] = useState<any[]>([]);
   const [osTechnicians, setOsTechnicians] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [stockSections, setStockSections] = useState<any[]>([]);
+  const [osMaterials, setOsMaterials] = useState<any[]>([]);
   const [mileage, setMileage] = useState('');
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<any>(null);
+  const [materialForm, setMaterialForm] = useState({
+    inventory_item_id: '',
+    quantity: '1',
+    notes: ''
+  });
 
   const [editFormData, setEditFormData] = useState({
     service_id: '',
@@ -37,6 +45,8 @@ export const OSDetails = () => {
     fetchServices();
     fetchAllTechnicians();
     fetchVehicles();
+    fetchStockItems();
+    fetchMaterials();
   }, [id]);
 
   const fetchOSDetails = async () => {
@@ -62,6 +72,8 @@ export const OSDetails = () => {
   const fetchServices = async () => { try { const res = await axios.get('/api/services'); setServices(res.data); } catch (error) { console.error(error); } };
   const fetchAllTechnicians = async () => { try { const res = await axios.get('/api/technicians'); setAllTechnicians(res.data); } catch (error) { console.error(error); } };
   const fetchVehicles = async () => { try { const res = await axios.get('/api/vehicles'); setVehicles(res.data); } catch (error) { console.error(error); } };
+  const fetchStockItems = async () => { try { const res = await axios.get('/api/stock'); setStockSections(res.data.sections || []); } catch (error) { console.error(error); } };
+  const fetchMaterials = async () => { try { const res = await axios.get(`/api/os/${id}/materials`); setOsMaterials(Array.isArray(res.data) ? res.data : []); } catch (error) { console.error(error); setOsMaterials([]); } };
 
   const buildOsUpdateFormData = (overrides: Record<string, string> = {}) => {
     const data = new FormData();
@@ -181,6 +193,69 @@ export const OSDetails = () => {
       } catch (error: any) {
         alert(error.response?.data?.message || 'Erro ao excluir a OS.');
       }
+    }
+  };
+
+  const flattenStockItems = stockSections.flatMap((section) =>
+    (section.subdivisions || []).flatMap((subdivision: any) =>
+      (subdivision.items || []).map((item: any) => ({
+        ...item,
+        section_name: section.name,
+        subdivision_name: subdivision.name
+      }))
+    )
+  );
+
+  const selectedStockItem = flattenStockItems.find((item) => item.id === Number(materialForm.inventory_item_id));
+
+  const resetMaterialForm = () => {
+    setEditingMaterial(null);
+    setMaterialForm({ inventory_item_id: '', quantity: '1', notes: '' });
+  };
+
+  const handleMaterialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const payload = {
+        inventory_item_id: Number(materialForm.inventory_item_id || editingMaterial?.inventory_item_id || 0),
+        quantity: Number(materialForm.quantity),
+        notes: materialForm.notes
+      };
+
+      if (editingMaterial) {
+        await axios.put(`/api/os/${id}/materials/${editingMaterial.id}`, payload);
+      } else {
+        await axios.post(`/api/os/${id}/materials`, payload);
+      }
+
+      resetMaterialForm();
+      await Promise.all([fetchMaterials(), fetchStockItems()]);
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erro ao salvar material na OS.');
+    }
+  };
+
+  const handleEditMaterial = (material: any) => {
+    setEditingMaterial(material);
+    setMaterialForm({
+      inventory_item_id: String(material.inventory_item_id),
+      quantity: String(material.quantity),
+      notes: material.notes || ''
+    });
+  };
+
+  const handleDeleteMaterial = async (materialId: number) => {
+    if (!window.confirm('Remover esse material da OS e devolver ao estoque?')) return;
+
+    try {
+      await axios.delete(`/api/os/${id}/materials/${materialId}`);
+      if (editingMaterial?.id === materialId) {
+        resetMaterialForm();
+      }
+      await Promise.all([fetchMaterials(), fetchStockItems()]);
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erro ao remover material da OS.');
     }
   };
 
@@ -356,6 +431,115 @@ export const OSDetails = () => {
               </div>
             </div>
 
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider flex items-center">
+                    <Package size={16} className="mr-2" />
+                    Materiais Utilizados
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">O que for lancado aqui ja sai do estoque automaticamente.</p>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">{osMaterials.length} item(ns)</span>
+              </div>
+
+              <div className="p-4 border-b border-gray-100 bg-slate-50">
+                <form onSubmit={handleMaterialSubmit} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-[1.5fr_0.6fr] gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Item do estoque</label>
+                      <select
+                        required
+                        disabled={!!editingMaterial}
+                        className="w-full rounded-lg border-gray-300 bg-white p-2.5 border text-sm disabled:bg-gray-100"
+                        value={materialForm.inventory_item_id}
+                        onChange={(e) => setMaterialForm({ ...materialForm, inventory_item_id: e.target.value })}
+                      >
+                        <option value="">Selecione um item</option>
+                        {flattenStockItems.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.section_name} / {item.subdivision_name} / {item.name} ({Number(item.quantity || 0)} {item.unit || 'un'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Quantidade usada</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        required
+                        className="w-full rounded-lg border-gray-300 bg-white p-2.5 border text-sm"
+                        value={materialForm.quantity}
+                        onChange={(e) => setMaterialForm({ ...materialForm, quantity: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Observacao</label>
+                    <input
+                      className="w-full rounded-lg border-gray-300 bg-white p-2.5 border text-sm"
+                      placeholder="Ex: cabo de rede usado no ponto principal"
+                      value={materialForm.notes}
+                      onChange={(e) => setMaterialForm({ ...materialForm, notes: e.target.value })}
+                    />
+                  </div>
+
+                  {selectedStockItem && !editingMaterial && (
+                    <p className="text-xs text-gray-500">
+                      Saldo atual: <span className="font-bold text-gray-700">{Number(selectedStockItem.quantity || 0)} {selectedStockItem.unit || 'un'}</span>
+                    </p>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button type="submit" className="bg-[#0a5c36] text-white font-bold px-4 py-2.5 rounded-lg hover:bg-[#0d7a48] text-sm">
+                      {editingMaterial ? 'Salvar correcao' : 'Lancar material na OS'}
+                    </button>
+                    {editingMaterial && (
+                      <button type="button" onClick={resetMaterialForm} className="border border-gray-200 text-gray-600 font-semibold px-4 py-2.5 rounded-lg hover:bg-gray-50 text-sm">
+                        Cancelar edicao
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              <div className="divide-y divide-gray-100">
+                {osMaterials.length > 0 ? osMaterials.map((material) => (
+                  <div key={material.id} className="p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                      <p className="font-bold text-gray-800">{material.item_name_snapshot}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {material.section_name || 'Sem estoque'} / {material.subdivision_name || 'Sem subdivisao'} {material.sku ? `• ${material.sku}` : ''}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-2">
+                        Usado: <span className="font-bold text-[#0a5c36]">{Number(material.quantity || 0)} {material.unit_snapshot || 'un'}</span>
+                        {' '}• Estoque restante: <span className="font-bold text-slate-700">{Number(material.current_stock_quantity || 0)} {material.unit_snapshot || 'un'}</span>
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">{material.notes || 'Sem observacao'}</p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button onClick={() => handleEditMaterial(material)} className="px-3 py-2 rounded-lg text-blue-600 hover:bg-blue-50 font-semibold text-sm flex items-center gap-2">
+                        <Edit size={15} />
+                        Editar
+                      </button>
+                      <button onClick={() => handleDeleteMaterial(material.id)} className="px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 font-semibold text-sm flex items-center gap-2">
+                        <Trash2 size={15} />
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="p-6 text-sm text-gray-500 text-center">
+                    Nenhum material foi lancado nesta OS ainda.
+                  </div>
+                )}
+              </div>
+            </div>
+
             {os.image_url && (
               <div>
                 <h3 className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center"><ImageIcon size={16} className="mr-2"/> Anexo</h3>
@@ -400,7 +584,7 @@ export const OSDetails = () => {
             </div>
 
             <div className="bg-gray-50 p-4 sm:p-5 rounded-xl border border-gray-200">
-              <h3 className="text-xs sm:text-sm font-bold text-gray-600 uppercase tracking-wider mb-3">Quilometragem Ida e Volta (KM)</h3>
+              <h3 className="text-xs sm:text-sm font-bold text-gray-600 uppercase tracking-wider mb-3">Quilometragem até o local (KM)</h3>
               <div className="flex flex-col sm:flex-row gap-3">
                 <input type="number" step="0.1" className="flex-1 rounded-lg border-gray-300 shadow-sm p-2.5 border text-sm" value={mileage} onChange={(e) => setMileage(e.target.value)} />
                 <button onClick={handleSaveMileage} disabled={isSaving} className="bg-[#0a5c36] text-white px-4 py-2.5 rounded-lg font-bold hover:bg-[#0d7a48] flex items-center justify-center text-sm">

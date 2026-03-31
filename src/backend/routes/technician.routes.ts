@@ -9,8 +9,12 @@ const technicianController = new TechnicianController();
 router.use(authMiddleware);
 
 router.get('/', technicianController.getAll);
+router.get('/:id/payments', technicianController.getPayments);
 router.post('/', technicianController.create);
+router.post('/:id/payments', technicianController.createPayment);
 router.put('/:id', technicianController.update);
+router.put('/:id/payments/:paymentId', technicianController.updatePayment);
+router.delete('/:id/payments/:paymentId', technicianController.deletePayment);
 router.delete('/:id', technicianController.delete);
 
 export default router;

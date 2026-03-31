@@ -52,6 +52,7 @@ export async function initDb() {
     name TEXT NOT NULL,
     phone TEXT,
     email TEXT,
+    pix_key TEXT,
     active INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
@@ -63,6 +64,54 @@ export async function initDb() {
     consumption REAL DEFAULT 10,
     fuel_price REAL DEFAULT 5.50,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  db.exec(`CREATE TABLE IF NOT EXISTS inventory_sections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  db.exec(`CREATE TABLE IF NOT EXISTS inventory_subdivisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    section_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(section_id) REFERENCES inventory_sections(id) ON DELETE CASCADE
+  )`);
+
+  db.exec(`CREATE TABLE IF NOT EXISTS inventory_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subdivision_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    sku TEXT,
+    quantity REAL DEFAULT 0,
+    min_quantity REAL DEFAULT 0,
+    unit TEXT DEFAULT 'un',
+    unit_cost REAL DEFAULT 0,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(subdivision_id) REFERENCES inventory_subdivisions(id) ON DELETE CASCADE
+  )`);
+
+  db.exec(`CREATE TABLE IF NOT EXISTS service_order_materials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    os_id INTEGER NOT NULL,
+    inventory_item_id INTEGER NOT NULL,
+    item_name_snapshot TEXT NOT NULL,
+    unit_snapshot TEXT DEFAULT 'un',
+    unit_cost_snapshot REAL DEFAULT 0,
+    quantity REAL NOT NULL DEFAULT 0,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(os_id) REFERENCES service_orders(id) ON DELETE CASCADE,
+    FOREIGN KEY(inventory_item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT
   )`);
 
   db.exec(`CREATE TABLE IF NOT EXISTS service_orders (
@@ -128,6 +177,16 @@ export async function initDb() {
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
   )`);
 
+  db.exec(`CREATE TABLE IF NOT EXISTS technician_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    technician_id INTEGER NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    note TEXT,
+    paid_at TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(technician_id) REFERENCES technicians(id) ON DELETE CASCADE
+  )`);
+
   if (!hasColumn('services', 'description')) {
     db.exec('ALTER TABLE services ADD COLUMN description TEXT');
   }
@@ -138,6 +197,10 @@ export async function initDb() {
 
   if (!hasColumn('clients', 'birth_date')) {
     db.exec('ALTER TABLE clients ADD COLUMN birth_date TEXT');
+  }
+
+  if (!hasColumn('technicians', 'pix_key')) {
+    db.exec('ALTER TABLE technicians ADD COLUMN pix_key TEXT');
   }
 
   if (!hasColumn('users', 'active')) {

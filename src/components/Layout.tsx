@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Map, List, LogOut, Home, Users, Wrench, Menu, X, DollarSign, Car, Shield, Sparkles, ChevronRight } from 'lucide-react';
+import { Map, List, LogOut, Home, Users, Wrench, Menu, X, DollarSign, Car, Shield, Sparkles, ChevronRight, Boxes } from 'lucide-react';
 
 export const Layout = () => {
   const { user, logout } = useAuth();
@@ -24,6 +24,7 @@ export const Layout = () => {
     { path: '/finance', name: 'Financeiro', icon: DollarSign, description: 'Custos e ganhos' },
     { path: '/clients', name: 'Clientes', icon: Users, description: 'Base de atendimento' },
     { path: '/services', name: 'Servicos', icon: Wrench, description: 'Catalogo e valores' },
+    { path: '/stock', name: 'Estoque', icon: Boxes, description: 'Produtos por divisao' },
     { path: '/map', name: 'Mapa', icon: Map, description: 'Operacao em campo' },
     { path: '/vehicles', name: 'Frota', icon: Car, description: 'Veiculos e gastos' },
     { path: '/technicians', name: 'Tecnicos', icon: Wrench, description: 'Equipe tecnica' },

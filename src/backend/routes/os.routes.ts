@@ -14,9 +14,13 @@ router.get('/', osController.getAll);
 router.get('/:id', osController.getById);
 router.get('/:id/history', osController.getHistory);
 router.get('/:id/technicians', osController.getTechnicians);
+router.get('/:id/materials', osController.getMaterials);
 router.post('/', upload.single('image'), validate(osSchema), osController.create);
 router.put('/:id', upload.single('image'), validate(osSchema), osController.update);
+router.post('/:id/materials', osController.addMaterial);
+router.put('/:id/materials/:materialId', osController.updateMaterial);
+router.delete('/:id/materials/:materialId', osController.deleteMaterial);
 router.put('/:id/status', osController.updateStatus);
-router.delete('/:id', osController.delete); // <-- ROTA DE EXCLUSÃO AQUI
+router.delete('/:id', osController.delete);
 
 export default router;

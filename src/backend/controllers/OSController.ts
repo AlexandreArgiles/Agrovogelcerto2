@@ -45,6 +45,16 @@ export class OSController {
     }
   };
 
+  getMaterials = async (req: AuthRequest, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const materials = await this.osService.getMaterialsByOs(id);
+      res.json(materials || []);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  };
+
   create = async (req: AuthRequest, res: Response) => {
     try {
       const { client_id, service_id, extra_service_id, vehicle_id, technician_ids, description, latitude, longitude, mileage, travel_cost } = req.body;
@@ -105,6 +115,48 @@ export class OSController {
       
       const updatedOS = await this.osService.updateStatus(id, status, userId);
       res.json(updatedOS);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  };
+
+  addMaterial = async (req: AuthRequest, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = req.user!.id;
+      const materials = await this.osService.addMaterial(id, {
+        inventory_item_id: Number(req.body.inventory_item_id),
+        quantity: Number(req.body.quantity),
+        notes: req.body.notes
+      }, userId);
+      res.status(201).json(materials);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  };
+
+  updateMaterial = async (req: AuthRequest, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const materialId = parseInt(req.params.materialId);
+      const userId = req.user!.id;
+      const materials = await this.osService.updateMaterial(id, materialId, {
+        quantity: Number(req.body.quantity),
+        notes: req.body.notes
+      }, userId);
+      res.json(materials);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  };
+
+  deleteMaterial = async (req: AuthRequest, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const materialId = parseInt(req.params.materialId);
+      const userId = req.user!.id;
+      await this.osService.deleteMaterial(id, materialId, userId);
+      res.status(204).send();
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

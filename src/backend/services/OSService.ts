@@ -57,6 +57,23 @@ export class OSService {
     `).all(osId);
   }
 
+  async getMaterialsByOs(osId: number) {
+    return db.prepare(`
+      SELECT
+        som.*,
+        ii.sku,
+        ii.quantity as current_stock_quantity,
+        isd.name as subdivision_name,
+        ise.name as section_name
+      FROM service_order_materials som
+      JOIN inventory_items ii ON ii.id = som.inventory_item_id
+      LEFT JOIN inventory_subdivisions isd ON isd.id = ii.subdivision_id
+      LEFT JOIN inventory_sections ise ON ise.id = isd.section_id
+      WHERE som.os_id = ?
+      ORDER BY som.created_at DESC, som.id DESC
+    `).all(osId);
+  }
+
   async create(data: any, file: any, userId: number) {
     const imageUrl = file ? `/uploads/${file.filename}` : null;
     
@@ -147,7 +164,161 @@ export class OSService {
     return this.getById(id);
   }
 
+  async addMaterial(osId: number, data: any, userId: number) {
+    const order = this.getById(osId) as any;
+    if (!order) throw new Error('OS not found');
+
+    const quantity = Number(data.quantity || 0);
+    if (!quantity || quantity <= 0) {
+      throw new Error('Informe uma quantidade valida');
+    }
+
+    const transaction = db.transaction(() => {
+      const item = db.prepare(`
+        SELECT id, name, unit, unit_cost, quantity
+        FROM inventory_items
+        WHERE id = ?
+      `).get(data.inventory_item_id) as any;
+
+      if (!item) {
+        throw new Error('Item de estoque nao encontrado');
+      }
+
+      if (Number(item.quantity || 0) < quantity) {
+        throw new Error('Estoque insuficiente para essa baixa');
+      }
+
+      db.prepare(`
+        INSERT INTO service_order_materials (
+          os_id, inventory_item_id, item_name_snapshot, unit_snapshot, unit_cost_snapshot, quantity, notes
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        osId,
+        item.id,
+        item.name,
+        item.unit || 'un',
+        item.unit_cost || 0,
+        quantity,
+        data.notes || null
+      );
+
+      db.prepare(`
+        UPDATE inventory_items
+        SET quantity = quantity - ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(quantity, item.id);
+    });
+
+    transaction();
+    db.prepare('INSERT INTO os_history (os_id, user_id, previous_status, new_status, changes) VALUES (?, ?, ?, ?, ?)').run(osId, userId, order.status, order.status, 'Material baixado do estoque');
+    return this.getMaterialsByOs(osId);
+  }
+
+  async updateMaterial(osId: number, materialId: number, data: any, userId: number) {
+    const order = this.getById(osId) as any;
+    if (!order) throw new Error('OS not found');
+
+    const nextQuantity = Number(data.quantity || 0);
+    if (!nextQuantity || nextQuantity <= 0) {
+      throw new Error('Informe uma quantidade valida');
+    }
+
+    const transaction = db.transaction(() => {
+      const material = db.prepare(`
+        SELECT *
+        FROM service_order_materials
+        WHERE id = ? AND os_id = ?
+      `).get(materialId, osId) as any;
+
+      if (!material) {
+        throw new Error('Material da OS nao encontrado');
+      }
+
+      const item = db.prepare(`
+        SELECT id, name, unit, unit_cost, quantity
+        FROM inventory_items
+        WHERE id = ?
+      `).get(material.inventory_item_id) as any;
+
+      if (!item) {
+        throw new Error('Item de estoque nao encontrado');
+      }
+
+      const delta = nextQuantity - Number(material.quantity || 0);
+      if (delta > 0 && Number(item.quantity || 0) < delta) {
+        throw new Error('Estoque insuficiente para aumentar essa quantidade');
+      }
+
+      db.prepare(`
+        UPDATE inventory_items
+        SET quantity = quantity - ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(delta, item.id);
+
+      db.prepare(`
+        UPDATE service_order_materials
+        SET item_name_snapshot = ?, unit_snapshot = ?, unit_cost_snapshot = ?, quantity = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND os_id = ?
+      `).run(
+        item.name,
+        item.unit || 'un',
+        item.unit_cost || 0,
+        nextQuantity,
+        data.notes || null,
+        materialId,
+        osId
+      );
+    });
+
+    transaction();
+    db.prepare('INSERT INTO os_history (os_id, user_id, previous_status, new_status, changes) VALUES (?, ?, ?, ?, ?)').run(osId, userId, order.status, order.status, 'Material da OS ajustado');
+    return this.getMaterialsByOs(osId);
+  }
+
+  async deleteMaterial(osId: number, materialId: number, userId: number) {
+    const order = this.getById(osId) as any;
+    if (!order) throw new Error('OS not found');
+
+    const transaction = db.transaction(() => {
+      const material = db.prepare(`
+        SELECT *
+        FROM service_order_materials
+        WHERE id = ? AND os_id = ?
+      `).get(materialId, osId) as any;
+
+      if (!material) {
+        throw new Error('Material da OS nao encontrado');
+      }
+
+      db.prepare(`
+        UPDATE inventory_items
+        SET quantity = quantity + ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(material.quantity, material.inventory_item_id);
+
+      db.prepare('DELETE FROM service_order_materials WHERE id = ? AND os_id = ?').run(materialId, osId);
+    });
+
+    transaction();
+    db.prepare('INSERT INTO os_history (os_id, user_id, previous_status, new_status, changes) VALUES (?, ?, ?, ?, ?)').run(osId, userId, order.status, order.status, 'Material removido da OS e devolvido ao estoque');
+    return true;
+  }
+
   async delete(id: number, userId: number) {
+    const materials = await this.getMaterialsByOs(id) as any[];
+    const restoreMaterials = db.transaction(() => {
+      materials.forEach((material) => {
+        db.prepare(`
+          UPDATE inventory_items
+          SET quantity = quantity + ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).run(material.quantity, material.inventory_item_id);
+      });
+    });
+
+    restoreMaterials();
+    db.prepare('DELETE FROM service_order_materials WHERE os_id = ?').run(id);
     db.prepare('DELETE FROM os_history WHERE os_id = ?').run(id);
     db.prepare('DELETE FROM os_technicians WHERE os_id = ?').run(id);
     db.prepare('DELETE FROM service_orders WHERE id = ?').run(id);
