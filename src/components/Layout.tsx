@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Map, List, LogOut, Home, Users, Wrench, Menu, X, DollarSign, Car, Shield, Sparkles, ChevronRight, Boxes } from 'lucide-react';
+import { Map, List, LogOut, Home, Users, Wrench, Menu, X, DollarSign, Car, Shield, ChevronRight, Boxes } from 'lucide-react';
 
 export const Layout = () => {
   const { user, logout } = useAuth();
@@ -41,8 +41,8 @@ export const Layout = () => {
     <div className="min-h-screen md:h-dvh overflow-x-hidden bg-transparent flex flex-col md:flex-row">
       <div className="md:hidden bg-[var(--brand-900)] text-white p-4 flex justify-between items-center shadow-md z-40 relative">
         <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 bg-white rounded-2xl flex items-center justify-center shadow-lg">
-            <Sparkles size={18} className="text-[var(--brand-900)]" />
+          <div className="w-9 h-9 bg-white rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+            <img src="/agrovogel-logo.png" alt="AgroVogel" className="w-full h-full object-cover" />
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-wide">AGROVOGEL</h1>
@@ -63,8 +63,8 @@ export const Layout = () => {
 
       <aside className={`fixed inset-y-0 left-0 z-50 w-[86vw] max-w-72 h-dvh overflow-hidden bg-[linear-gradient(180deg,#0a5c36_0%,#084a2b_100%)] text-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:w-72 md:max-w-none md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-white/10 hidden md:flex flex-col items-center justify-center">
-          <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center mb-3 shadow-md">
-            <Sparkles size={28} className="text-[var(--brand-900)]" />
+          <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center mb-3 shadow-md overflow-hidden">
+            <img src="/agrovogel-logo.png" alt="AgroVogel" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold tracking-wide">AGROVOGEL</h1>
           <p className="text-xs text-[#c5ec8e] font-medium tracking-[0.2em] mt-1 uppercase">Gestao operacional</p>

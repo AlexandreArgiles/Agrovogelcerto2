@@ -34,14 +34,8 @@ export const Login = () => {
 
       <div className="bg-white p-10 rounded-2xl shadow-2xl w-[400px] z-10 relative">
         <div className="flex flex-col items-center justify-center mb-8">
-          {/* Logo Placeholder */}
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 shadow-lg overflow-hidden relative border-4 border-gray-50">
-            <div className="absolute top-0 left-0 w-full h-1/2 bg-[#8cc63f] rounded-t-full"></div>
-            <div className="absolute bottom-0 left-0 w-full h-1/2 bg-white rounded-b-full"></div>
-            <svg viewBox="0 0 100 100" className="w-14 h-14 z-10 drop-shadow-sm">
-              <path d="M10,50 Q30,20 90,10 Q70,80 10,50 Z" fill="#8cc63f" />
-              <path d="M90,50 Q70,80 10,90 Q30,20 90,50 Z" fill="white" />
-            </svg>
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-4 shadow-lg overflow-hidden relative border-4 border-gray-50">
+            <img src="/agrovogel-logo.png" alt="AgroVogel" className="w-full h-full object-cover" />
           </div>
           <h2 className="text-3xl font-bold tracking-wider text-[#0a5c36]">AGRO<span className="font-light">VOGEL</span></h2>
           <p className="text-sm text-[#8cc63f] font-medium tracking-widest mt-1">SOLUÇÕES INTELIGENTES</p>
