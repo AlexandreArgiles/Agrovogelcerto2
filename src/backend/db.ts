@@ -44,6 +44,8 @@ export async function initDb() {
     price REAL NOT NULL DEFAULT 0,
     technician_pay REAL NOT NULL DEFAULT 0,
     price_type TEXT DEFAULT 'fixed',
+    billing_party TEXT DEFAULT 'client',
+    payer_name TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
@@ -93,6 +95,7 @@ export async function initDb() {
     min_quantity REAL DEFAULT 0,
     unit TEXT DEFAULT 'un',
     unit_cost REAL DEFAULT 0,
+    customer_price REAL DEFAULT 0,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -106,6 +109,7 @@ export async function initDb() {
     item_name_snapshot TEXT NOT NULL,
     unit_snapshot TEXT DEFAULT 'un',
     unit_cost_snapshot REAL DEFAULT 0,
+    customer_unit_price_snapshot REAL DEFAULT 0,
     quantity REAL NOT NULL DEFAULT 0,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -201,6 +205,22 @@ export async function initDb() {
 
   if (!hasColumn('technicians', 'pix_key')) {
     db.exec('ALTER TABLE technicians ADD COLUMN pix_key TEXT');
+  }
+
+  if (!hasColumn('services', 'billing_party')) {
+    db.exec("ALTER TABLE services ADD COLUMN billing_party TEXT DEFAULT 'client'");
+  }
+
+  if (!hasColumn('services', 'payer_name')) {
+    db.exec('ALTER TABLE services ADD COLUMN payer_name TEXT');
+  }
+
+  if (!hasColumn('inventory_items', 'customer_price')) {
+    db.exec('ALTER TABLE inventory_items ADD COLUMN customer_price REAL DEFAULT 0');
+  }
+
+  if (!hasColumn('service_order_materials', 'customer_unit_price_snapshot')) {
+    db.exec('ALTER TABLE service_order_materials ADD COLUMN customer_unit_price_snapshot REAL DEFAULT 0');
   }
 
   if (!hasColumn('users', 'active')) {

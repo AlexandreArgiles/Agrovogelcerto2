@@ -21,6 +21,7 @@ type ItemPayload = {
   min_quantity?: number;
   unit?: string;
   unit_cost?: number;
+  customer_price?: number;
   notes?: string;
 };
 
@@ -85,7 +86,8 @@ export class StockService {
       subdivision_count: subdivisions.length,
       item_count: items.length,
       low_stock_count: items.filter((item) => Number(item.low_stock) === 1).length,
-      stock_value: items.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.unit_cost || 0)), 0)
+      stock_value: items.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.unit_cost || 0)), 0),
+      client_value: items.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.customer_price || 0)), 0)
     };
 
     return {
@@ -180,8 +182,8 @@ export class StockService {
 
   async createItem(data: ItemPayload) {
     const info = db.prepare(`
-      INSERT INTO inventory_items (subdivision_id, name, sku, quantity, min_quantity, unit, unit_cost, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO inventory_items (subdivision_id, name, sku, quantity, min_quantity, unit, unit_cost, customer_price, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.subdivision_id,
       data.name,
@@ -190,6 +192,7 @@ export class StockService {
       data.min_quantity || 0,
       data.unit || 'un',
       data.unit_cost || 0,
+      data.customer_price || 0,
       data.notes || null
     );
 
@@ -203,7 +206,7 @@ export class StockService {
   async updateItem(id: number, data: ItemPayload) {
     db.prepare(`
       UPDATE inventory_items
-      SET subdivision_id = ?, name = ?, sku = ?, quantity = ?, min_quantity = ?, unit = ?, unit_cost = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+      SET subdivision_id = ?, name = ?, sku = ?, quantity = ?, min_quantity = ?, unit = ?, unit_cost = ?, customer_price = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(
       data.subdivision_id,
@@ -213,6 +216,7 @@ export class StockService {
       data.min_quantity || 0,
       data.unit || 'un',
       data.unit_cost || 0,
+      data.customer_price || 0,
       data.notes || null,
       id
     );

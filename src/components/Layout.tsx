@@ -30,6 +30,7 @@ export const Layout = () => {
     { path: '/technicians', name: 'Tecnicos', icon: Wrench, description: 'Equipe tecnica' },
     { path: '/users', name: 'Usuarios', icon: Shield, description: 'Acessos internos' }
   ];
+  const mobileQuickNav = navItems.filter((item) => ['/', '/os', '/finance', '/stock', '/map'].includes(item.path));
 
   const currentItem = useMemo(() => (
     navItems.find((item) => location.pathname === item.path || (item.path === '/os' && location.pathname.startsWith('/os/')))
@@ -37,7 +38,7 @@ export const Layout = () => {
   const isMapRoute = location.pathname === '/map';
 
   return (
-    <div className="min-h-screen md:h-screen overflow-x-hidden md:overflow-hidden bg-transparent flex flex-col md:flex-row">
+    <div className="min-h-screen md:h-dvh overflow-x-hidden bg-transparent flex flex-col md:flex-row">
       <div className="md:hidden bg-[var(--brand-900)] text-white p-4 flex justify-between items-center shadow-md z-40 relative">
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 bg-white rounded-2xl flex items-center justify-center shadow-lg">
@@ -60,7 +61,7 @@ export const Layout = () => {
         />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 w-72 h-screen overflow-hidden bg-[linear-gradient(180deg,#0a5c36_0%,#084a2b_100%)] text-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-[86vw] max-w-72 h-dvh overflow-hidden bg-[linear-gradient(180deg,#0a5c36_0%,#084a2b_100%)] text-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:w-72 md:max-w-none md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-white/10 hidden md:flex flex-col items-center justify-center">
           <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center mb-3 shadow-md">
             <Sparkles size={28} className="text-[var(--brand-900)]" />
@@ -122,32 +123,52 @@ export const Layout = () => {
         </div>
       </aside>
 
-      <main className={`flex-1 min-w-0 h-[calc(100vh-64px)] md:h-screen overflow-y-auto ${isMapRoute ? 'px-3 py-3 md:px-4 md:py-4' : 'px-4 py-4 md:px-8 md:py-6'}`}>
+      <main className={`flex-1 min-w-0 min-h-0 overflow-y-auto pb-24 md:pb-0 ${isMapRoute ? 'px-2 py-2 sm:px-3 sm:py-3 md:px-4 md:py-4' : 'px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5 xl:px-8 xl:py-6'}`}>
         {isMapRoute ? (
           <div className="h-full">
             <Outlet />
           </div>
         ) : (
-          <div className="app-card rounded-[28px] min-h-full overflow-hidden">
-            <div className="px-5 py-4 md:px-8 md:py-5 border-b border-[var(--border-soft)] bg-white/70 backdrop-blur-xl">
+          <div className="app-card rounded-[22px] md:rounded-[28px] min-h-full overflow-hidden">
+            <div className="px-4 py-4 sm:px-5 md:px-6 md:py-5 xl:px-8 border-b border-[var(--border-soft)] bg-white/70 backdrop-blur-xl">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-600)]">Agrovogel Workspace</p>
-                  <h2 className="text-xl md:text-2xl font-bold text-[var(--brand-900)]">
+                  <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-[var(--brand-900)]">
                     {currentItem?.name || 'Painel'}
                   </h2>
                 </div>
-                <div className="text-sm text-[var(--text-600)]">
+                <div className="text-sm text-[var(--text-600)] md:text-right">
                   {currentItem?.description || 'Gestao central da operacao'}
                 </div>
               </div>
             </div>
-            <div className="p-4 md:p-8">
+            <div className="p-3 sm:p-4 md:p-6 xl:p-8">
               <Outlet />
             </div>
           </div>
         )}
       </main>
+
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 safe-bottom border-t border-[rgba(10,92,54,0.08)] bg-white/95 backdrop-blur-xl shadow-[0_-12px_30px_rgba(15,23,42,0.08)]">
+        <div className="grid grid-cols-5 gap-1 px-2 pt-2">
+          {mobileQuickNav.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path || (item.path === '/os' && location.pathname.startsWith('/os/'));
+
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold transition-colors ${isActive ? 'text-[var(--brand-900)] bg-[var(--surface-100)]' : 'text-slate-500'}`}
+              >
+                <Icon size={18} />
+                <span className="truncate max-w-full">{item.name === 'Ordens de Servico' ? 'OS' : item.name}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

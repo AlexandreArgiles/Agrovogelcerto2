@@ -7,10 +7,37 @@ export class OSService {
              c.name as client_name, 
              c.latitude as client_latitude,
              c.longitude as client_longitude,
-             s.name as service_name, 
+             c.address as client_address,
+             s.name as service_name,
+             s.billing_party as service_billing_party,
+             s.payer_name as service_payer_name,
              es.name as extra_service_name,
+             es.billing_party as extra_service_billing_party,
+             es.payer_name as extra_service_payer_name,
              v.name as vehicle_name,
-             (SELECT COUNT(*) FROM os_technicians WHERE os_id = so.id) as technician_count
+             (SELECT COUNT(*) FROM os_technicians WHERE os_id = so.id) as technician_count,
+             (
+               COALESCE(CASE
+                 WHEN COALESCE(s.billing_party, 'client') = 'client' THEN CASE WHEN s.price_type = 'hourly' THEN s.price * COALESCE(so.hours_worked, 0) ELSE s.price END
+                 ELSE 0
+               END, 0) +
+               COALESCE(CASE
+                 WHEN COALESCE(es.billing_party, 'client') = 'client' THEN CASE WHEN es.price_type = 'hourly' THEN es.price * COALESCE(so.hours_worked, 0) ELSE es.price END
+                 ELSE 0
+               END, 0)
+             ) as client_service_total,
+             (
+               COALESCE(CASE
+                 WHEN s.billing_party = 'partner' THEN CASE WHEN s.price_type = 'hourly' THEN s.price * COALESCE(so.hours_worked, 0) ELSE s.price END
+                 ELSE 0
+               END, 0) +
+               COALESCE(CASE
+                 WHEN es.billing_party = 'partner' THEN CASE WHEN es.price_type = 'hourly' THEN es.price * COALESCE(so.hours_worked, 0) ELSE es.price END
+                 ELSE 0
+               END, 0)
+             ) as partner_service_total,
+             COALESCE((SELECT SUM(quantity * unit_cost_snapshot) FROM service_order_materials WHERE os_id = so.id), 0) as material_cost,
+             COALESCE((SELECT SUM(quantity * customer_unit_price_snapshot) FROM service_order_materials WHERE os_id = so.id), 0) as customer_material_total
       FROM service_orders so
       LEFT JOIN clients c ON so.client_id = c.id
       LEFT JOIN services s ON so.service_id = s.id
@@ -26,10 +53,37 @@ export class OSService {
              c.name as client_name, 
              c.latitude as client_latitude,
              c.longitude as client_longitude,
-             s.name as service_name, 
+             c.address as client_address,
+             s.name as service_name,
+             s.billing_party as service_billing_party,
+             s.payer_name as service_payer_name,
              es.name as extra_service_name,
+             es.billing_party as extra_service_billing_party,
+             es.payer_name as extra_service_payer_name,
              v.name as vehicle_name,
-             (SELECT COUNT(*) FROM os_technicians WHERE os_id = so.id) as technician_count
+             (SELECT COUNT(*) FROM os_technicians WHERE os_id = so.id) as technician_count,
+             (
+               COALESCE(CASE
+                 WHEN COALESCE(s.billing_party, 'client') = 'client' THEN CASE WHEN s.price_type = 'hourly' THEN s.price * COALESCE(so.hours_worked, 0) ELSE s.price END
+                 ELSE 0
+               END, 0) +
+               COALESCE(CASE
+                 WHEN COALESCE(es.billing_party, 'client') = 'client' THEN CASE WHEN es.price_type = 'hourly' THEN es.price * COALESCE(so.hours_worked, 0) ELSE es.price END
+                 ELSE 0
+               END, 0)
+             ) as client_service_total,
+             (
+               COALESCE(CASE
+                 WHEN s.billing_party = 'partner' THEN CASE WHEN s.price_type = 'hourly' THEN s.price * COALESCE(so.hours_worked, 0) ELSE s.price END
+                 ELSE 0
+               END, 0) +
+               COALESCE(CASE
+                 WHEN es.billing_party = 'partner' THEN CASE WHEN es.price_type = 'hourly' THEN es.price * COALESCE(so.hours_worked, 0) ELSE es.price END
+                 ELSE 0
+               END, 0)
+             ) as partner_service_total,
+             COALESCE((SELECT SUM(quantity * unit_cost_snapshot) FROM service_order_materials WHERE os_id = so.id), 0) as material_cost,
+             COALESCE((SELECT SUM(quantity * customer_unit_price_snapshot) FROM service_order_materials WHERE os_id = so.id), 0) as customer_material_total
       FROM service_orders so
       LEFT JOIN clients c ON so.client_id = c.id
       LEFT JOIN services s ON so.service_id = s.id
@@ -175,7 +229,7 @@ export class OSService {
 
     const transaction = db.transaction(() => {
       const item = db.prepare(`
-        SELECT id, name, unit, unit_cost, quantity
+        SELECT id, name, unit, unit_cost, customer_price, quantity
         FROM inventory_items
         WHERE id = ?
       `).get(data.inventory_item_id) as any;
@@ -190,15 +244,16 @@ export class OSService {
 
       db.prepare(`
         INSERT INTO service_order_materials (
-          os_id, inventory_item_id, item_name_snapshot, unit_snapshot, unit_cost_snapshot, quantity, notes
+          os_id, inventory_item_id, item_name_snapshot, unit_snapshot, unit_cost_snapshot, customer_unit_price_snapshot, quantity, notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         osId,
         item.id,
         item.name,
         item.unit || 'un',
         item.unit_cost || 0,
+        item.customer_price || 0,
         quantity,
         data.notes || null
       );
@@ -236,7 +291,7 @@ export class OSService {
       }
 
       const item = db.prepare(`
-        SELECT id, name, unit, unit_cost, quantity
+        SELECT id, name, unit, unit_cost, customer_price, quantity
         FROM inventory_items
         WHERE id = ?
       `).get(material.inventory_item_id) as any;
@@ -258,12 +313,13 @@ export class OSService {
 
       db.prepare(`
         UPDATE service_order_materials
-        SET item_name_snapshot = ?, unit_snapshot = ?, unit_cost_snapshot = ?, quantity = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+        SET item_name_snapshot = ?, unit_snapshot = ?, unit_cost_snapshot = ?, customer_unit_price_snapshot = ?, quantity = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND os_id = ?
       `).run(
         item.name,
         item.unit || 'un',
         item.unit_cost || 0,
+        item.customer_price || 0,
         nextQuantity,
         data.notes || null,
         materialId,

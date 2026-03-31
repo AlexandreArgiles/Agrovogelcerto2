@@ -37,12 +37,13 @@ export const Dashboard = () => {
         const refused = orders.filter((o: any) => o.status === 'refused').length;
         const completed = orders.filter((o: any) => o.status === 'completed').length;
         const completedOrders = orders.filter((o: any) => o.status === 'completed');
-        const revenue = completedOrders.reduce((acc: number, order: any) => acc + (order.final_price || 0), 0);
+        const revenue = completedOrders.reduce((acc: number, order: any) => acc + (order.final_price || 0) + (order.customer_material_total || 0), 0);
         const technicianCost = completedOrders.reduce((acc: number, order: any) => acc + (order.technician_count > 0 ? (order.final_technician_pay || 0) : 0), 0);
+        const materialCost = completedOrders.reduce((acc: number, order: any) => acc + (order.material_cost || 0), 0);
         const travelCost = completedOrders.reduce((acc: number, order: any) => acc + (order.travel_cost || 0), 0);
         const maintenanceCost = expenses.reduce((acc: number, expense: any) => acc + (expense.amount || 0), 0);
         const fleetCost = travelCost + maintenanceCost;
-        const profit = revenue - technicianCost - fleetCost;
+        const profit = revenue - technicianCost - materialCost - fleetCost;
 
         setStats({
           pending,

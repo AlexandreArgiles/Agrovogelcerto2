@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
@@ -71,11 +71,16 @@ function getOrderCoordinates(order: any): [number, number] | null {
   return [Number(latitude), Number(longitude)];
 }
 
-function FitBounds({ points }: { points: Array<[number, number]> }) {
+function FitBounds({ points, enabled }: { points: Array<[number, number]>; enabled: boolean }) {
   const map = useMap();
+  const hasAdjustedInitially = useRef(false);
 
   useEffect(() => {
     if (points.length === 0) return;
+    if (!enabled && hasAdjustedInitially.current) return;
+
+    hasAdjustedInitially.current = true;
+
     if (points.length === 1) {
       map.setView(points[0], 13, { animate: true });
       return;
@@ -85,7 +90,7 @@ function FitBounds({ points }: { points: Array<[number, number]> }) {
       padding: [40, 40],
       animate: true
     });
-  }, [map, points]);
+  }, [enabled, map, points]);
 
   return null;
 }
@@ -98,6 +103,10 @@ export const MapView = () => {
   const [showClients, setShowClients] = useState(true);
   const [showOrders, setShowOrders] = useState(true);
   const navigate = useNavigate();
+
+  const normalizedSearchTerm = normalizeText(searchTerm);
+  const numericSearchTerm = normalizedSearchTerm.replace(/\D/g, '');
+  const shouldAutoFocus = numericSearchTerm.length >= 11 || /^#?\d+$/.test(normalizedSearchTerm) || normalizedSearchTerm.includes('@');
 
   useEffect(() => {
     fetchData();
@@ -127,18 +136,18 @@ export const MapView = () => {
   const filteredOrders = orders.filter((os) => {
     const matchesStatus = selectedStatuses.includes(os.status);
     const matchesSearch =
-      normalizeText(os.client_name).includes(normalizeText(searchTerm)) ||
-      normalizeText(os.description).includes(normalizeText(searchTerm)) ||
-      normalizeText(String(os.id)).includes(normalizeText(searchTerm));
+      normalizeText(os.client_name).includes(normalizedSearchTerm) ||
+      normalizeText(os.description).includes(normalizedSearchTerm) ||
+      normalizeText(String(os.id)).includes(normalizedSearchTerm);
     const hasCoordinates = !!getOrderCoordinates(os);
     return matchesStatus && matchesSearch && hasCoordinates;
   });
 
   const filteredClients = clients.filter((client) => {
     const matchesSearch =
-      normalizeText(client.name).includes(normalizeText(searchTerm)) ||
-      normalizeText(client.email).includes(normalizeText(searchTerm)) ||
-      normalizeText(client.cpf).includes(normalizeText(searchTerm));
+      normalizeText(client.name).includes(normalizedSearchTerm) ||
+      normalizeText(client.email).includes(normalizedSearchTerm) ||
+      normalizeText(client.cpf).includes(normalizedSearchTerm);
     const hasCoordinates = client.latitude !== null && client.latitude !== undefined && client.longitude !== null && client.longitude !== undefined;
     return matchesSearch && hasCoordinates;
   });
@@ -247,7 +256,7 @@ export const MapView = () => {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          <FitBounds points={points.length > 0 ? points : [[-30.8833, -54.6667]]} />
+          <FitBounds points={points.length > 0 ? points : [[-30.8833, -54.6667]]} enabled={shouldAutoFocus} />
 
           {showClients && filteredClients.map((client) => (
             <Marker

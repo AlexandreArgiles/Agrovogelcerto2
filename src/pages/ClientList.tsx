@@ -84,14 +84,14 @@ export const ClientList = () => {
 
   return (
     <div className="animate-in fade-in duration-500">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-[#0a5c36]">Clientes</h1>
           <p className="text-gray-500 mt-1">Gerenciamento de base de clientes</p>
         </div>
         <button
           onClick={openCreateModal}
-          className="bg-[#8cc63f] text-[#0a5c36] font-bold px-5 py-2.5 rounded-lg hover:bg-[#7ab036] flex items-center space-x-2 transition-all shadow-sm active:scale-95"
+          className="w-full sm:w-auto bg-[#8cc63f] text-[#0a5c36] font-bold px-5 py-2.5 rounded-lg hover:bg-[#7ab036] flex items-center justify-center space-x-2 transition-all shadow-sm active:scale-95"
         >
           <Plus size={20} strokeWidth={2.5} />
           <span>Novo Cliente</span>
@@ -99,7 +99,7 @@ export const ClientList = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="table-scroll">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -159,7 +159,7 @@ export const ClientList = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 max-h-[85vh] overflow-y-auto">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Nome Completo <span className="text-red-500">*</span></label>
                 <input
@@ -215,7 +215,7 @@ export const ClientList = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Latitude</label>
                   <input
@@ -259,7 +259,7 @@ export const ClientList = () => {
                       alert('Geolocalizacao nao e suportada por este navegador.');
                     }
                   }}
-                  className="text-sm text-[#0a5c36] font-semibold hover:text-[#8cc63f] transition-colors flex items-center"
+                  className="w-full sm:w-auto text-sm text-[#0a5c36] font-semibold hover:text-[#8cc63f] transition-colors inline-flex items-center justify-center"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -269,17 +269,17 @@ export const ClientList = () => {
                 </button>
               </div>
 
-              <div className="flex justify-end space-x-3 mt-8 pt-4 border-t border-gray-100">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-8 pt-4 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-5 py-2.5 rounded-lg text-gray-600 font-medium hover:bg-gray-100 transition-colors"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-gray-600 font-medium hover:bg-gray-100 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-[#0a5c36] text-white font-bold rounded-lg hover:bg-[#0d7a48] transition-colors shadow-sm"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-[#0a5c36] text-white font-bold rounded-lg hover:bg-[#0d7a48] transition-colors shadow-sm"
                 >
                   {editingClient ? 'Salvar Alteracoes' : 'Salvar Cliente'}
                 </button>

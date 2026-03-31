@@ -104,8 +104,64 @@ export const OSList = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
-        <div className="overflow-x-auto w-full">
+      <div className="md:hidden space-y-3">
+        {orders.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-500">
+            Nenhuma OS cadastrada.
+          </div>
+        ) : (
+          orders.map((order) => (
+            <div key={order.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">OS #{order.id}</p>
+                  <p className="text-base font-bold text-[#0a5c36] mt-1 truncate">{order.client_name}</p>
+                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">{order.description}</p>
+                </div>
+                <span className={`px-3 py-1 inline-flex text-[10px] leading-5 font-bold rounded-full whitespace-nowrap
+                  ${order.status === 'approved' ? 'bg-green-100 text-[#0a5c36]' :
+                    order.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                    order.status === 'refused' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                  {translateStatus(order.status)}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Servico</p>
+                  <p className="font-semibold text-gray-700 mt-1">{order.service_name || '-'}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Data</p>
+                  <p className="font-semibold text-gray-700 mt-1">{format(new Date(order.created_at), 'dd MMM yyyy', { locale: ptBR })}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => navigate(`/os/${order.id}`)} className="flex-1 min-w-[120px] text-blue-600 hover:text-blue-800 flex items-center justify-center bg-blue-50 px-3 py-2.5 rounded-xl font-semibold">
+                  <Eye size={16} className="mr-2" /> Abrir
+                </button>
+                {order.status === 'pending' && (
+                  <>
+                    <button onClick={() => handleStatusChange(order.id, 'approved')} className="flex-1 min-w-[120px] text-[#0a5c36] bg-green-50 px-3 py-2.5 rounded-xl font-semibold flex items-center justify-center">
+                      <Check size={16} className="mr-2" /> Aprovar
+                    </button>
+                    <button onClick={() => handleStatusChange(order.id, 'refused')} className="flex-1 min-w-[120px] text-red-500 bg-red-50 px-3 py-2.5 rounded-xl font-semibold flex items-center justify-center">
+                      <X size={16} className="mr-2" /> Recusar
+                    </button>
+                  </>
+                )}
+                <button onClick={() => handleDelete(order.id)} className="w-full text-gray-500 hover:text-red-600 bg-gray-50 px-3 py-2.5 rounded-xl font-semibold flex items-center justify-center">
+                  <Trash2 size={16} className="mr-2" /> Excluir
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
+        <div className="table-scroll">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -180,7 +236,7 @@ export const OSList = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Servico Principal</label>
                     <select className="block w-full rounded-lg border-gray-300 bg-gray-50 shadow-sm p-2.5 border" value={formData.service_id} onChange={e => setFormData({...formData, service_id: e.target.value})}>
                       <option value="">Selecione (Opcional)</option>
-                      {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {services.map(s => <option key={s.id} value={s.id}>{s.name}{s.billing_party === 'partner' ? ` - pago por ${s.payer_name || 'empresa parceira'}` : ''}</option>)}
                     </select>
                   </div>
                 </div>
@@ -190,7 +246,7 @@ export const OSList = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Servico Extra</label>
                     <select className="block w-full rounded-lg border-gray-300 bg-gray-50 shadow-sm p-2.5 border" value={formData.extra_service_id} onChange={e => setFormData({...formData, extra_service_id: e.target.value})}>
                       <option value="">Nenhum</option>
-                      {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {services.map(s => <option key={s.id} value={s.id}>{s.name}{s.billing_party === 'partner' ? ` - pago por ${s.payer_name || 'empresa parceira'}` : ''}</option>)}
                     </select>
                   </div>
                   <div>

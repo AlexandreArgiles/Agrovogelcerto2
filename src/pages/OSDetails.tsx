@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, MapPin, Save, User, Wrench, Image as ImageIcon, Edit, X, Navigation, DollarSign, Clock, Plus, CheckCircle, Trash2, Users, Car, Package } from 'lucide-react';
+import { ArrowLeft, MapPin, Save, User, Wrench, Image as ImageIcon, Edit, X, Navigation, DollarSign, Clock, Plus, CheckCircle, Trash2, Users, Car, Package, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -322,6 +322,13 @@ export const OSDetails = () => {
   const hasCoordinates = latitude !== null && latitude !== undefined && longitude !== null && longitude !== undefined;
   const mapLink = hasCoordinates ? `https://www.google.com/maps?q=${latitude},${longitude}` : '';
   const totals = calculateTotals();
+  const materialsCost = osMaterials.reduce((acc, material) => acc + (Number(material.quantity || 0) * Number(material.unit_cost_snapshot || 0)), 0);
+  const customerMaterialTotal = osMaterials.reduce((acc, material) => acc + (Number(material.quantity || 0) * Number(material.customer_unit_price_snapshot || 0)), 0);
+  const clientServiceTotal = Number(os.client_service_total || 0);
+  const partnerServiceTotal = Number(os.partner_service_total || 0);
+  const totalOperationalCost = Number(os.final_technician_pay || 0) + Number(os.travel_cost || 0) + materialsCost;
+  const clientPayableTotal = clientServiceTotal + customerMaterialTotal;
+  const totalBilled = Number(os.final_price || 0) + customerMaterialTotal;
 
   const translateStatus = (status: string) => {
     switch (status) {
@@ -333,8 +340,211 @@ export const OSDetails = () => {
     }
   };
 
+  const isMeterUnit = (unit: string | null | undefined) => ['m', 'mt', 'mts', 'metro', 'metros'].includes(String(unit || '').toLowerCase());
+  const materialReference = editingMaterial || selectedStockItem;
+  const materialQuantityLabel = isMeterUnit(materialReference?.unit_snapshot || materialReference?.unit) ? 'Metros usados' : 'Quantidade usada';
+
+  const handlePrintOS = () => {
+    const printWindow = window.open('', '_blank', 'width=1024,height=900');
+    if (!printWindow) {
+      alert('Nao foi possivel abrir a janela de impressao.');
+      return;
+    }
+
+    const baseService = services.find((service) => service.id === os.service_id);
+    const extraService = services.find((service) => service.id === os.extra_service_id);
+    const technicalTeam = osTechnicians.length > 0 ? osTechnicians.map((technician) => technician.name).join(', ') : '________________________________';
+    const hasHourlyService = [baseService, extraService].some((service) => service?.price_type === 'hourly' && (service.billing_party || 'client') === 'client');
+    const hasMeterMaterial = osMaterials.some((material) => isMeterUnit(material.unit_snapshot));
+    const requiresManualTotal = hasHourlyService || hasMeterMaterial;
+    const printableTotal = requiresManualTotal ? 'R$ ____________________________________' : `R$ ${clientPayableTotal.toFixed(2)}`;
+
+    const serviceRows = [baseService, extraService]
+      .filter(Boolean)
+      .map((service: any, index) => {
+        const title = index === 0 ? 'Servico principal' : 'Servico extra';
+        if (service.price_type === 'hourly') {
+          if ((service.billing_party || 'client') === 'partner') {
+            return `
+              <tr>
+                <td>${title}: ${service.name}</td>
+                <td>Cliente final: R$ 0.00</td>
+                <td colspan="2">Faturado para: ${service.payer_name || 'Empresa parceira'}</td>
+              </tr>
+            `;
+          }
+
+          return `
+            <tr>
+              <td>${title}: ${service.name}</td>
+              <td>R$ ${Number(service.price || 0).toFixed(2)} / hora</td>
+              <td>Horas: ____________________</td>
+              <td>Total: ____________________</td>
+            </tr>
+          `;
+        }
+
+        if ((service.billing_party || 'client') === 'partner') {
+          return `
+            <tr>
+              <td>${title}: ${service.name}</td>
+              <td>Cliente final: R$ 0.00</td>
+              <td colspan="2">Faturado para: ${service.payer_name || 'Empresa parceira'}</td>
+            </tr>
+          `;
+        }
+
+        return `
+          <tr>
+            <td>${title}: ${service.name}</td>
+            <td>Valor: R$ ${Number(service.price || 0).toFixed(2)}</td>
+            <td colspan="2">Descricao: ${service.description || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+
+    const materialRows = osMaterials.length > 0
+      ? osMaterials.map((material) => {
+          if (isMeterUnit(material.unit_snapshot)) {
+            return `
+              <tr>
+                <td>${material.item_name_snapshot}</td>
+                <td>Metros: ____________________</td>
+                <td>R$ ${Number(material.customer_unit_price_snapshot || 0).toFixed(2)} / metro</td>
+                <td>Total: ____________________</td>
+              </tr>
+            `;
+          }
+
+          return `
+            <tr>
+              <td>${material.item_name_snapshot}</td>
+              <td>${Number(material.quantity || 0)} ${material.unit_snapshot || 'un'}</td>
+              <td>R$ ${Number(material.customer_unit_price_snapshot || 0).toFixed(2)}</td>
+              <td>R$ ${(Number(material.quantity || 0) * Number(material.customer_unit_price_snapshot || 0)).toFixed(2)}</td>
+            </tr>
+          `;
+        }).join('')
+      : `
+        <tr>
+          <td colspan="4">Nenhum material registrado.</td>
+        </tr>
+      `;
+
+    const warrantyText = 'Garantia legal de 90 dias para servicos duraveis, contados da conclusao do servico, conforme o Codigo de Defesa do Consumidor.';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>OS ${os.id}</title>
+          <style>
+            @page { size: A4; margin: 12mm; }
+            * { box-sizing: border-box; }
+            html, body { width: 210mm; min-height: 297mm; }
+            body { font-family: Arial, sans-serif; padding: 0; color: #1f2937; font-size: 12px; line-height: 1.45; }
+            h1, h2, h3, p { margin: 0; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+            .box { border: 1px solid #d1d5db; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+            .label { font-size: 11px; text-transform: uppercase; color: #6b7280; letter-spacing: 0.08em; font-weight: bold; margin-bottom: 6px; }
+            .value { font-size: 15px; font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #d1d5db; padding: 10px; text-align: left; font-size: 13px; vertical-align: top; }
+            th { background: #f3f4f6; }
+            .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 32px; }
+            .signature-line { border-top: 1px solid #111827; padding-top: 10px; text-align: center; font-size: 13px; }
+            .footer-note { font-size: 12px; line-height: 1.6; color: #374151; }
+            .total-box { margin-top: 16px; border: 2px solid #111827; border-radius: 12px; padding: 16px; }
+            .total-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #4b5563; font-weight: bold; margin-bottom: 6px; }
+            .total-value { font-size: 22px; font-weight: bold; }
+            .total-help { margin-top: 6px; color: #6b7280; font-size: 11px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <p style="font-size:12px; text-transform:uppercase; letter-spacing:0.12em; color:#6b7280; font-weight:bold;">Ordem de servico</p>
+              <h1 style="font-size:28px; margin-top:6px;">OS #${os.id}</h1>
+              <p style="margin-top:8px; color:#4b5563;">Servico realizado: ${os.description || '-'}</p>
+            </div>
+            <div style="text-align:right;">
+              <p class="label">Data</p>
+              <p class="value">____ / ____ / ________</p>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="box">
+              <p class="label">Cliente</p>
+              <p class="value">${os.client_name || '-'}</p>
+              <p style="margin-top:10px;"><strong>Endereco:</strong> ${os.client_address || '_______________________________________________'}</p>
+            </div>
+            <div class="box">
+              <p class="label">Tecnico responsavel</p>
+              <p class="value">${technicalTeam}</p>
+            </div>
+          </div>
+
+          <div class="box">
+            <p class="label">Servicos executados</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Servico</th>
+                  <th>Valor base</th>
+                  <th>Apontamento</th>
+                  <th>Valor final</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${serviceRows || '<tr><td colspan="4">Nenhum servico vinculado.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="box">
+            <p class="label">Materiais utilizados</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Quantidade</th>
+                  <th>Valor unitario ao cliente</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${materialRows}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="box">
+            <p class="label">Garantia padrao</p>
+            <p class="footer-note">${warrantyText}</p>
+          </div>
+
+          <div class="total-box">
+            <div class="total-title">Valor total da OS</div>
+            <div class="total-value">${printableTotal}</div>
+            ${requiresManualTotal ? '<div class="total-help">Preencher manualmente quando houver cobranca por hora ou material por metragem.</div>' : ''}
+          </div>
+
+          <div class="signatures">
+            <div class="signature-line">Assinatura do tecnico</div>
+            <div class="signature-line">Assinatura do cliente</div>
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   return (
-    <div className="animate-in fade-in duration-500 max-w-5xl mx-auto pb-10">
+    <div className="animate-in fade-in duration-500 max-w-7xl mx-auto pb-10">
       <button onClick={() => navigate('/os')} className="flex items-center text-gray-500 hover:text-[#0a5c36] font-semibold mb-6 transition-colors">
         <ArrowLeft size={20} className="mr-2" /> Voltar para lista
       </button>
@@ -359,6 +569,10 @@ export const OSDetails = () => {
 
             <button onClick={() => initEditForm(os.status || 'pending')} className="bg-[#8cc63f] hover:bg-[#7ab036] text-[#0a5c36] p-2 sm:p-2.5 rounded-full transition-all shadow-sm active:scale-95" title="Editar OS">
               <Edit size={18} strokeWidth={2.5} />
+            </button>
+
+            <button onClick={handlePrintOS} className="bg-white text-[#0a5c36] hover:bg-green-50 p-2 sm:p-2.5 rounded-full transition-all shadow-sm active:scale-95" title="Imprimir OS">
+              <Printer size={18} strokeWidth={2.5} />
             </button>
 
             <button onClick={handleDeleteOS} className="bg-red-500 hover:bg-red-600 text-white p-2 sm:p-2.5 rounded-full transition-all shadow-sm active:scale-95" title="Excluir OS">
@@ -404,14 +618,18 @@ export const OSDetails = () => {
               <h3 className="text-xs sm:text-sm font-bold text-green-800 uppercase tracking-wider mb-3 flex items-center">
                 <DollarSign size={16} className="mr-2"/> Resumo Financeiro
               </h3>
-              <div className="grid grid-cols-4 gap-2 sm:gap-4">
+              <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-2 sm:gap-4">
                 <div>
                   <p className="text-[10px] sm:text-xs text-green-600 font-bold uppercase">Horas</p>
                   <p className="text-base font-bold text-green-900 flex items-center"><Clock size={14} className="mr-1"/> {os.hours_worked || 0}h</p>
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-green-600 font-bold uppercase">Cliente Paga</p>
-                  <p className="text-base font-bold text-green-900">R$ {(os.final_price || 0).toFixed(2)}</p>
+                  <p className="text-[10px] sm:text-xs text-green-600 font-bold uppercase">Cliente Final</p>
+                  <p className="text-base font-bold text-green-900">R$ {clientPayableTotal.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-sky-600 font-bold uppercase">Empresa Parceira</p>
+                  <p className="text-base font-bold text-sky-700">R$ {partnerServiceTotal.toFixed(2)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] sm:text-xs text-blue-600 font-bold uppercase">Tecnicos</p>
@@ -421,6 +639,14 @@ export const OSDetails = () => {
                   <p className="text-[10px] sm:text-xs text-red-600 font-bold uppercase">Combustivel</p>
                   <p className="text-base font-bold text-red-600">R$ {(os.travel_cost || 0).toFixed(2)}</p>
                 </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-amber-700 font-bold uppercase">Materiais</p>
+                  <p className="text-base font-bold text-amber-700">R$ {customerMaterialTotal.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-green-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <p className="text-sm text-green-800">Cliente final: <span className="font-bold">R$ {clientPayableTotal.toFixed(2)}</span></p>
+                <p className="text-sm text-green-900">Faturamento total: <span className="font-bold">R$ {totalBilled.toFixed(2)}</span></p>
               </div>
             </div>
 
@@ -464,7 +690,7 @@ export const OSDetails = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Quantidade usada</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{materialQuantityLabel}</label>
                       <input
                         type="number"
                         step="0.01"
@@ -488,14 +714,16 @@ export const OSDetails = () => {
                   </div>
 
                   {selectedStockItem && !editingMaterial && (
-                    <p className="text-xs text-gray-500">
-                      Saldo atual: <span className="font-bold text-gray-700">{Number(selectedStockItem.quantity || 0)} {selectedStockItem.unit || 'un'}</span>
-                    </p>
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <p>Saldo atual: <span className="font-bold text-gray-700">{Number(selectedStockItem.quantity || 0)} {selectedStockItem.unit || 'un'}</span></p>
+                      <p>Preco para o cliente: <span className="font-bold text-gray-700">R$ {Number(selectedStockItem.customer_price || 0).toFixed(2)}</span></p>
+                      <p>Total a cobrar: <span className="font-bold text-amber-700">R$ {(Number(selectedStockItem.customer_price || 0) * Number(materialForm.quantity || 0)).toFixed(2)}</span></p>
+                    </div>
                   )}
 
                   <div className="flex flex-col sm:flex-row gap-3">
                     <button type="submit" className="bg-[#0a5c36] text-white font-bold px-4 py-2.5 rounded-lg hover:bg-[#0d7a48] text-sm">
-                      {editingMaterial ? 'Salvar correcao' : 'Lancar material na OS'}
+                      {editingMaterial ? (isMeterUnit(editingMaterial?.unit_snapshot) ? 'Salvar metragem' : 'Salvar correcao') : 'Lancar material na OS'}
                     </button>
                     {editingMaterial && (
                       <button type="button" onClick={resetMaterialForm} className="border border-gray-200 text-gray-600 font-semibold px-4 py-2.5 rounded-lg hover:bg-gray-50 text-sm">
@@ -515,8 +743,12 @@ export const OSDetails = () => {
                         {material.section_name || 'Sem estoque'} / {material.subdivision_name || 'Sem subdivisao'} {material.sku ? `• ${material.sku}` : ''}
                       </p>
                       <p className="text-sm text-gray-600 mt-2">
-                        Usado: <span className="font-bold text-[#0a5c36]">{Number(material.quantity || 0)} {material.unit_snapshot || 'un'}</span>
+                        {isMeterUnit(material.unit_snapshot) ? 'Metragem usada:' : 'Usado:'} <span className="font-bold text-[#0a5c36]">{Number(material.quantity || 0)} {material.unit_snapshot || 'un'}</span>
                         {' '}• Estoque restante: <span className="font-bold text-slate-700">{Number(material.current_stock_quantity || 0)} {material.unit_snapshot || 'un'}</span>
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Valor para o cliente: <span className="font-bold text-slate-700">R$ {Number(material.customer_unit_price_snapshot || 0).toFixed(2)}</span>
+                        {' '}| Total cobrado: <span className="font-bold text-amber-700">R$ {(Number(material.quantity || 0) * Number(material.customer_unit_price_snapshot || 0)).toFixed(2)}</span>
                       </p>
                       <p className="text-sm text-gray-500 mt-1">{material.notes || 'Sem observacao'}</p>
                     </div>
@@ -524,7 +756,7 @@ export const OSDetails = () => {
                     <div className="flex gap-2">
                       <button onClick={() => handleEditMaterial(material)} className="px-3 py-2 rounded-lg text-blue-600 hover:bg-blue-50 font-semibold text-sm flex items-center gap-2">
                         <Edit size={15} />
-                        Editar
+                        {isMeterUnit(material.unit_snapshot) ? 'Ajustar metragem' : 'Editar'}
                       </button>
                       <button onClick={() => handleDeleteMaterial(material.id)} className="px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 font-semibold text-sm flex items-center gap-2">
                         <Trash2 size={15} />
@@ -538,6 +770,12 @@ export const OSDetails = () => {
                   </div>
                 )}
               </div>
+              {osMaterials.length > 0 && (
+                <div className="px-4 py-4 border-t border-gray-100 bg-amber-50 flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-amber-900">Total de materiais cobrados nesta OS</span>
+                  <span className="text-lg font-black text-amber-800">R$ {customerMaterialTotal.toFixed(2)}</span>
+                </div>
+              )}
             </div>
 
             {os.image_url && (
@@ -621,14 +859,14 @@ export const OSDetails = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Servico Base</label>
                     <select className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border" value={editFormData.service_id} onChange={e => setEditFormData({ ...editFormData, service_id: e.target.value })}>
                       <option value="">Nenhum</option>
-                      {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {services.map((s) => <option key={s.id} value={s.id}>{s.name}{s.billing_party === 'partner' ? ` - pago por ${s.payer_name || 'empresa parceira'}` : ''}</option>)}
                     </select>
                   </div>
                   <div className="col-span-1">
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Servico Extra</label>
                     <select className="block w-full rounded-lg border-gray-300 bg-gray-50 p-2.5 border" value={editFormData.extra_service_id} onChange={e => setEditFormData({ ...editFormData, extra_service_id: e.target.value })}>
                       <option value="">Nenhum</option>
-                      {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {services.map((s) => <option key={s.id} value={s.id}>{s.name}{s.billing_party === 'partner' ? ` - pago por ${s.payer_name || 'empresa parceira'}` : ''}</option>)}
                     </select>
                   </div>
                   <div className="col-span-1">
