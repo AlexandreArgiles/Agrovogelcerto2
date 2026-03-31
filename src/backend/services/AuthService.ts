@@ -58,6 +58,30 @@ export class AuthService {
     return { success: true, token };
   }
 
+  async forgotPassword(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = db.prepare('SELECT * FROM users WHERE LOWER(COALESCE(email, username)) = LOWER(?)').get(normalizedEmail) as any;
+
+    if (!user) {
+      throw new Error('Nenhum usuario encontrado com esse e-mail');
+    }
+
+    const tempPassword = Math.random().toString(36).slice(-8).toUpperCase();
+    const hash = await bcrypt.hash(tempPassword, 10);
+
+    db.prepare(`
+      UPDATE users
+      SET password = ?, force_password_change = 1
+      WHERE id = ?
+    `).run(hash, user.id);
+
+    return {
+      success: true,
+      tempPassword,
+      userName: user.name
+    };
+  }
+
   async register(name: string, email: string, password: string) {
     const normalizedEmail = email.trim().toLowerCase();
     const stmtCheck = db.prepare('SELECT * FROM users WHERE LOWER(COALESCE(email, username)) = LOWER(?)');

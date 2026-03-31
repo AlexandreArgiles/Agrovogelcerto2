@@ -35,4 +35,14 @@ export class AuthController {
       res.status(400).json({ message: error.message });
     }
   };
+
+  forgotPassword = async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      const result = await this.authService.forgotPassword(email);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  };
 }

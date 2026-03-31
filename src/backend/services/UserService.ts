@@ -56,6 +56,49 @@ export class UserService {
     return this.getById(info.lastInsertRowid as number);
   }
 
+  async update(id: number, data: { name: string; email: string; role?: string }) {
+    const normalizedEmail = data.email.trim().toLowerCase();
+    const existing = db.prepare(`
+      SELECT id
+      FROM users
+      WHERE LOWER(COALESCE(email, username)) = LOWER(?)
+        AND id != ?
+    `).get(normalizedEmail, id) as { id: number } | undefined;
+
+    if (existing) {
+      throw new Error('Usuario ou e-mail ja existe');
+    }
+
+    const usesLegacyUsername = (db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>)
+      .some((column) => column.name === 'username');
+
+    if (usesLegacyUsername) {
+      db.prepare(`
+        UPDATE users
+        SET name = ?, email = ?, username = ?, role = ?
+        WHERE id = ?
+      `).run(data.name.trim(), normalizedEmail, normalizedEmail, data.role || 'user', id);
+    } else {
+      db.prepare(`
+        UPDATE users
+        SET name = ?, email = ?, role = ?
+        WHERE id = ?
+      `).run(data.name.trim(), normalizedEmail, data.role || 'user', id);
+    }
+
+    return this.getById(id);
+  }
+
+  async resetPassword(id: number, nextPassword: string) {
+    const hashedPassword = await bcrypt.hash(nextPassword, 10);
+    db.prepare(`
+      UPDATE users
+      SET password = ?, force_password_change = 1
+      WHERE id = ?
+    `).run(hashedPassword, id);
+    return true;
+  }
+
   async delete(id: number) {
     db.prepare('DELETE FROM users WHERE id = ?').run(id);
     return true;

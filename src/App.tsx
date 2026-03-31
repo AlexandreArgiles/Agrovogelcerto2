@@ -19,7 +19,17 @@ import { Stock } from './pages/Stock';
 
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isAuthReady } = useAuth();
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[linear-gradient(180deg,#f8fbf7_0%,#f2f6f2_100%)]">
+        <div className="text-center">
+          <div className="w-14 h-14 mx-auto rounded-full border-4 border-[rgba(10,92,54,0.15)] border-t-[#0a5c36] animate-spin" />
+          <p className="mt-4 text-sm font-semibold text-[#0a5c36]">Carregando sessao...</p>
+        </div>
+      </div>
+    );
+  }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.force_password_change) return <Navigate to="/change-password" replace />;
   return <>{children}</>;
