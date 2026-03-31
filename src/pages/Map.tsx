@@ -156,7 +156,7 @@ export const MapView = () => {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 h-[calc(100vh-8rem)] flex flex-col gap-5">
+    <div className="animate-in fade-in duration-500 h-full min-h-0 flex flex-col gap-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-[#0a5c36]">Mapa Operacional</h1>
@@ -236,7 +236,7 @@ export const MapView = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 relative z-0 min-h-[520px]">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 min-h-[560px] relative z-0">
         <MapContainer
           center={[-30.8833, -54.6667]}
           zoom={10}

@@ -33,9 +33,10 @@ export const Layout = () => {
   const currentItem = useMemo(() => (
     navItems.find((item) => location.pathname === item.path || (item.path === '/os' && location.pathname.startsWith('/os/')))
   ), [location.pathname]);
+  const isMapRoute = location.pathname === '/map';
 
   return (
-    <div className="min-h-screen bg-transparent flex flex-col md:flex-row">
+    <div className="min-h-screen md:h-screen overflow-x-hidden md:overflow-hidden bg-transparent flex flex-col md:flex-row">
       <div className="md:hidden bg-[var(--brand-900)] text-white p-4 flex justify-between items-center shadow-md z-40 relative">
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 bg-white rounded-2xl flex items-center justify-center shadow-lg">
@@ -58,7 +59,7 @@ export const Layout = () => {
         />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-[linear-gradient(180deg,#0a5c36_0%,#084a2b_100%)] text-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 h-screen overflow-hidden bg-[linear-gradient(180deg,#0a5c36_0%,#084a2b_100%)] text-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-white/10 hidden md:flex flex-col items-center justify-center">
           <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center mb-3 shadow-md">
             <Sparkles size={28} className="text-[var(--brand-900)]" />
@@ -78,7 +79,7 @@ export const Layout = () => {
           </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 min-h-0 p-4 space-y-2 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path || (item.path === '/os' && location.pathname.startsWith('/os/'));
@@ -120,25 +121,31 @@ export const Layout = () => {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 px-4 py-4 md:px-8 md:py-6 overflow-x-hidden overflow-y-auto h-[calc(100vh-64px)] md:h-screen">
-        <div className="app-card rounded-[28px] min-h-full overflow-hidden">
-          <div className="px-5 py-4 md:px-8 md:py-5 border-b border-[var(--border-soft)] bg-white/70 backdrop-blur-xl">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-600)]">Agrovogel Workspace</p>
-                <h2 className="text-xl md:text-2xl font-bold text-[var(--brand-900)]">
-                  {currentItem?.name || 'Painel'}
-                </h2>
-              </div>
-              <div className="text-sm text-[var(--text-600)]">
-                {currentItem?.description || 'Gestao central da operacao'}
-              </div>
-            </div>
-          </div>
-          <div className="p-4 md:p-8">
+      <main className={`flex-1 min-w-0 h-[calc(100vh-64px)] md:h-screen overflow-y-auto ${isMapRoute ? 'px-3 py-3 md:px-4 md:py-4' : 'px-4 py-4 md:px-8 md:py-6'}`}>
+        {isMapRoute ? (
+          <div className="h-full">
             <Outlet />
           </div>
-        </div>
+        ) : (
+          <div className="app-card rounded-[28px] min-h-full overflow-hidden">
+            <div className="px-5 py-4 md:px-8 md:py-5 border-b border-[var(--border-soft)] bg-white/70 backdrop-blur-xl">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-600)]">Agrovogel Workspace</p>
+                  <h2 className="text-xl md:text-2xl font-bold text-[var(--brand-900)]">
+                    {currentItem?.name || 'Painel'}
+                  </h2>
+                </div>
+                <div className="text-sm text-[var(--text-600)]">
+                  {currentItem?.description || 'Gestao central da operacao'}
+                </div>
+              </div>
+            </div>
+            <div className="p-4 md:p-8">
+              <Outlet />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
