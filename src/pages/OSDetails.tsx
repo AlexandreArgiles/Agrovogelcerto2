@@ -15,7 +15,6 @@ export const OSDetails = () => {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [stockSections, setStockSections] = useState<any[]>([]);
   const [osMaterials, setOsMaterials] = useState<any[]>([]);
-  const [mileage, setMileage] = useState('');
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -53,7 +52,6 @@ export const OSDetails = () => {
     try {
       const res = await axios.get(`/api/os/${id}`);
       setOs(res.data);
-      setMileage(res.data.mileage?.toString() || '0');
       setManualLat((res.data.latitude ?? res.data.client_latitude)?.toString() || '');
       setManualLng((res.data.longitude ?? res.data.client_longitude)?.toString() || '');
 
@@ -97,32 +95,6 @@ export const OSDetails = () => {
     });
 
     return data;
-  };
-
-  const handleSaveMileage = async () => {
-    setIsSaving(true);
-    try {
-      let newTravelCost = 0;
-      if (os.vehicle_id) {
-        const vehicle = vehicles.find((v) => v.id === os.vehicle_id);
-        if (vehicle && Number(mileage) > 0) {
-          newTravelCost = ((Number(mileage) * 2) / vehicle.consumption) * vehicle.fuel_price;
-        }
-      }
-
-      const data = buildOsUpdateFormData({
-        mileage,
-        travel_cost: newTravelCost.toString()
-      });
-
-      await axios.put(`/api/os/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
-      alert('Quilometragem e custo de deslocamento atualizados!');
-      fetchOSDetails();
-    } catch {
-      alert('Erro ao atualizar quilometragem');
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handleSaveManualLocation = async () => {
@@ -262,12 +234,11 @@ export const OSDetails = () => {
   const calculateTotals = () => {
     const baseService = services.find((s) => s.id === Number(editFormData.service_id));
     const extraService = services.find((s) => s.id === Number(editFormData.extra_service_id));
-    const vehicle = vehicles.find((v) => v.id === Number(editFormData.vehicle_id));
     const hours = Number(editFormData.hours_worked) || 0;
 
     let calcPrice = 0;
     let calcTech = 0;
-    let calcTravelCost = 0;
+    const calcTravelCost = Number(os?.travel_cost || 0);
 
     if (baseService) {
       calcPrice += baseService.price_type === 'hourly' ? baseService.price * hours : baseService.price;
@@ -276,9 +247,6 @@ export const OSDetails = () => {
     if (extraService) {
       calcPrice += extraService.price_type === 'hourly' ? extraService.price * hours : extraService.price;
       calcTech += extraService.price_type === 'hourly' ? extraService.technician_pay * hours : extraService.technician_pay;
-    }
-    if (vehicle && Number(mileage) > 0) {
-      calcTravelCost = ((Number(mileage) * 2) / vehicle.consumption) * vehicle.fuel_price;
     }
 
     return { price: calcPrice, techPay: calcTech, travelCost: calcTravelCost };
@@ -298,7 +266,7 @@ export const OSDetails = () => {
     data.append('status', editFormData.status);
     data.append('latitude', editFormData.latitude);
     data.append('longitude', editFormData.longitude);
-    data.append('mileage', mileage);
+    data.append('mileage', os.mileage?.toString() || '0');
     data.append('hours_worked', editFormData.hours_worked || '0');
     data.append('travel_cost', totals.travelCost.toString());
     data.append('final_price', totals.price.toString());
@@ -821,16 +789,6 @@ export const OSDetails = () => {
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 sm:p-5 rounded-xl border border-gray-200">
-              <h3 className="text-xs sm:text-sm font-bold text-gray-600 uppercase tracking-wider mb-3">Quilometragem até o local (KM)</h3>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input type="number" step="0.1" className="flex-1 rounded-lg border-gray-300 shadow-sm p-2.5 border text-sm" value={mileage} onChange={(e) => setMileage(e.target.value)} />
-                <button onClick={handleSaveMileage} disabled={isSaving} className="bg-[#0a5c36] text-white px-4 py-2.5 rounded-lg font-bold hover:bg-[#0d7a48] flex items-center justify-center text-sm">
-                  <Save size={16} className={isSaving ? 'opacity-50' : 'mr-2'} /> {isSaving ? 'Salvando...' : 'Salvar KMs'}
-                </button>
-              </div>
-              {os.vehicle_id && <p className="text-xs text-gray-500 mt-2 italic">* O custo do combustivel sera atualizado automaticamente ao salvar.</p>}
-            </div>
           </div>
         </div>
       </div>
