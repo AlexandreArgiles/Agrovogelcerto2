@@ -7,6 +7,7 @@ import technicianRoutes from './technician.routes';
 import vehicleRoutes from './vehicle.routes';
 import userRoutes from './user.routes'; // <-- ADICIONE ESTA LINHA AQUI
 import stockRoutes from './stock.routes';
+import backupRoutes from './backup.routes';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/technicians', technicianRoutes);
 router.use('/vehicles', vehicleRoutes);
 router.use('/users', userRoutes); // <-- AGORA O ERRO VAI SUMIR
 router.use('/stock', stockRoutes);
+router.use('/backups', backupRoutes);
 
 export default router;

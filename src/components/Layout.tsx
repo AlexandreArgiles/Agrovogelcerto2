@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Map, List, LogOut, Home, Users, Wrench, Menu, X, DollarSign, Car, Shield, ChevronRight, Boxes } from 'lucide-react';
+import { Map, List, LogOut, Home, Users, Wrench, Menu, X, DollarSign, Car, Shield, ChevronRight, Boxes, Archive } from 'lucide-react';
 
 export const Layout = () => {
   const { user, logout } = useAuth();
@@ -28,6 +28,7 @@ export const Layout = () => {
     { path: '/map', name: 'Mapa', icon: Map, description: 'Operacao em campo' },
     { path: '/vehicles', name: 'Frota', icon: Car, description: 'Veiculos e gastos' },
     { path: '/technicians', name: 'Tecnicos', icon: Wrench, description: 'Equipe tecnica' },
+    { path: '/backups', name: 'Backups', icon: Archive, description: 'Copia de seguranca' },
     { path: '/users', name: 'Usuarios', icon: Shield, description: 'Acessos internos' }
   ];
   const mobileQuickNav = navItems.filter((item) => ['/', '/os', '/finance', '/stock', '/map'].includes(item.path));

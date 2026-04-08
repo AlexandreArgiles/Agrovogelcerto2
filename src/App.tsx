@@ -15,6 +15,7 @@ import { MapView } from './pages/Map';
 import { ChangePassword } from './pages/ChangePassword';
 import { UserList } from './pages/UserList';
 import { Stock } from './pages/Stock';
+import { Backups } from './pages/Backups';
 
 
 
@@ -51,6 +52,7 @@ function AppRoutes() {
         <Route path="/vehicles" element={<VehicleList />} /> {/* <-- Rota dos Veículos */}
         <Route path="/map" element={<MapView />} />
         <Route path="/stock" element={<Stock />} />
+        <Route path="/backups" element={<Backups />} />
         <Route path="/users" element={<UserList />} />
       </Route>
     </Routes>

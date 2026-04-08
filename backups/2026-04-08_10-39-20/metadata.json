@@ -1,0 +1,10 @@
+{
+  "id": "2026-04-08_10-39-20",
+  "created_at": "2026-04-08T13:39:20.193Z",
+  "trigger": "manual",
+  "initiated_by": "user:1",
+  "files": {
+    "database": true,
+    "uploads": true
+  }
+}
